@@ -5,6 +5,8 @@ import { Video, Link2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
+import Link from 'next/link';
+
 
 export default function HomePage() {
   const [isSignedIn, setIsSignedIn] = useState(false)
@@ -79,9 +81,14 @@ export default function HomePage() {
         </p>
 
         <div className="w-full max-w-md space-y-4 mb-6">
-          <Button className="w-full bg-purple-500 hover:bg-purple-600 text-white py-6 text-lg rounded-full" size="lg">
-            Join a Meeting
-          </Button>
+         <Link href="/join-meeting" passHref>
+        <Button 
+          className="w-full bg-purple-500 hover:bg-purple-600 text-white py-6 text-lg rounded-full"
+          size="lg"
+        >
+          Join a Meeting
+        </Button>
+        </Link>
 
           <Button
             onClick={handleStartInstantMeeting}

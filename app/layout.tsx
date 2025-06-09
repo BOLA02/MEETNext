@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata = {
   title: "Meet - Virtual Meeting Platform",
   description: "Professional virtual meeting platform",
-    generator: 'v0.dev'
+   
 }
 
 export default function RootLayout({
