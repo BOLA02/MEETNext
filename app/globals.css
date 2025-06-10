@@ -92,3 +92,20 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* globals.css */
+.high-contrast {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 0%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 0%;
+  --border: 0 0% 20%;
+  --ring: 255 0 0;
+  --input: 0 0% 100%;
+}
+
+/* Optional: Force font styles or outlines */
+/* .high-contrast * {
+  outline: 2px solid rgba(0, 0, 0, 0.4);
+} */
+

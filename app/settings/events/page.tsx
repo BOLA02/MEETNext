@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Select,
   SelectContent,
@@ -8,18 +8,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Checkbox } from '@/components/ui/checkbox'
+import SettingsHeader from '@/components/settings/SettingsHeader'
+import SettingToggle from '@/components/settings/fields/SettingToggle'
+import SettingSelect from '@/components/settings/fields/SettingSelect'
+import SettingRadioGroup from '@/components/settings/fields/SettingRadioGroup'
 
 export default function EventsSettings() {
   const videoRef = useRef<HTMLVideoElement>(null)
+
+  const [search, setSearch] = useState('')
+
   const [camera, setCamera] = useState('MacBook HD Camera')
   const [speaker, setSpeaker] = useState('Default Speakers')
   const [micDevice, setMicDevice] = useState('Internal Microphone')
   const [eventType, setEventType] = useState('Hybrid event')
   const [eventDuration, setEventDuration] = useState('Custom duration')
-
-  // other state values (simplified for clarity)
   const [spatialAudio, setSpatialAudio] = useState(true)
+
+  const [enableCohost, setEnableCohost] = useState(false)
+  const [galleryLayout, setGalleryLayout] = useState('Grid view')
+  const [noiseProfile, setNoiseProfile] = useState('Standard')
+  const [recordAuto, setRecordAuto] = useState(false)
+
+  const searchTerm = search.trim().toLowerCase()
 
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
@@ -29,98 +40,131 @@ export default function EventsSettings() {
     })
   }, [])
 
+  const match = (text: string) => text.toLowerCase().includes(searchTerm)
+
   return (
     <div className="space-y-6 text-sm text-gray-800">
-      <h1 className="text-xl font-semibold">Account / Settings</h1>
+      <SettingsHeader search={search} setSearch={setSearch} />
 
-      <section className="bg-white p-6 rounded-lg shadow border space-y-6">
-        <h2 className="text-lg font-semibold">Video Settings</h2>
+      {/* Video Settings */}
+      {(searchTerm === '' || match('video') || match('camera') || match('microphone') || match('speaker')) && (
+        <section className="bg-white p-6 rounded-lg shadow border space-y-6">
+          <h2 className="text-lg font-semibold">Video Settings</h2>
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            className="w-full rounded-lg border object-cover h-80"
+          />
 
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          className="w-full rounded-lg border object-cover h-80"
-        />
+          <div className="max-w-md space-y-4">
+            {match('camera') && (
+              <SettingSelect
+                label="Camera"
+                options={['MacBook HD Camera', 'External USB Camera']}
+                value={camera}
+                onChange={setCamera}
+              />
+            )}
 
-        <div className="max-w-md space-y-4">
-          <div className="space-y-2">
-            <label className="text-gray-700 font-medium">Camera</label>
-            <Select value={camera} onValueChange={setCamera}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a camera" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="MacBook HD Camera">MacBook HD Camera</SelectItem>
-                <SelectItem value="External USB Camera">External USB Camera</SelectItem>
-              </SelectContent>
-            </Select>
+            {match('speaker') && (
+              <SettingSelect
+                label="Speakers"
+                options={['Default Speakers', 'Sonarist SST Audio']}
+                value={speaker}
+                onChange={setSpeaker}
+              />
+            )}
+
+            {match('microphone') && (
+              <SettingSelect
+                label="Microphone"
+                options={['Internal Microphone', 'External Mic']}
+                value={micDevice}
+                onChange={setMicDevice}
+              />
+            )}
+
+            {match('event type') && (
+              <SettingSelect
+                label="Event Type"
+                options={['Hybrid event', 'In-person', 'Virtual']}
+                value={eventType}
+                onChange={setEventType}
+              />
+            )}
+
+            {match('duration') && (
+              <SettingSelect
+                label="Event Duration"
+                options={['Custom duration', '30 min', '1 hour']}
+                value={eventDuration}
+                onChange={setEventDuration}
+              />
+            )}
+
+            {match('spatial') && (
+              <SettingToggle
+                label="Enable spatial audio"
+                checked={spatialAudio}
+                onChange={setSpatialAudio}
+              />
+            )}
           </div>
+        </section>
+      )}
 
-          <div className="space-y-2">
-            <label className="text-gray-700 font-medium">Speakers</label>
-            <Select value={speaker} onValueChange={setSpeaker}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select speakers" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Default Speakers">Default Speakers</SelectItem>
-                <SelectItem value="Sonarist SST Audio">Sonarist SST Audio</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      {/* Event Controls */}
+      {(searchTerm === '' || match('co-host') || match('gallery') || match('noise') || match('record')) && (
+        <section className="bg-white p-6 rounded-lg shadow border space-y-6">
+          <h2 className="text-lg font-semibold">Advanced Event Controls</h2>
 
-          <div className="space-y-2">
-            <label className="text-gray-700 font-medium">Microphone</label>
-            <Select value={micDevice} onValueChange={setMicDevice}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select microphone" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Internal Microphone">Internal Microphone</SelectItem>
-                <SelectItem value="External Mic">External Mic</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <div className="max-w-md space-y-4">
+            {match('co-host') && (
+              <SettingToggle
+                label="Enable co-host controls"
+                checked={enableCohost}
+                onChange={setEnableCohost}
+              />
+            )}
 
-          <div className="space-y-2">
-            <label className="text-gray-700 font-medium">Event Type</label>
-            <Select value={eventType} onValueChange={setEventType}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select event type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Hybrid event">Hybrid event</SelectItem>
-                <SelectItem value="In-person">In-person</SelectItem>
-                <SelectItem value="Virtual">Virtual</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            {match('gallery') && (
+              <SettingRadioGroup
+                label="Gallery layout"
+                value={galleryLayout}
+                onChange={setGalleryLayout}
+                options={[
+                  { label: 'Grid view', value: 'Grid view' },
+                  { label: 'Speaker view', value: 'Speaker view' },
+                  { label: 'Sidebar view', value: 'Sidebar view' },
+                ]}
+              />
+            )}
 
-          <div className="space-y-2">
-            <label className="text-gray-700 font-medium">Event Duration</label>
-            <Select value={eventDuration} onValueChange={setEventDuration}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select duration" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Custom duration">Custom duration</SelectItem>
-                <SelectItem value="30 min">30 min</SelectItem>
-                <SelectItem value="1 hour">1 hour</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            {match('noise') && (
+              <SettingRadioGroup
+                label="Noise profile"
+                value={noiseProfile}
+                onChange={setNoiseProfile}
+                options={[
+                  { label: 'Standard', value: 'Standard' },
+                  { label: 'Low background noise', value: 'Low background noise' },
+                  { label: 'High background noise', value: 'High background noise' },
+                ]}
+              />
+            )}
 
-          <div className="flex items-center space-x-2 mt-4">
-            <Checkbox
-              checked={spatialAudio}
-              onCheckedChange={(checked) => setSpatialAudio(!!checked)}
-            />
-            <span className="text-gray-700">Enable spatial audio</span>
+            {match('record') && (
+              <SettingToggle
+                label="Auto-record meeting"
+                checked={recordAuto}
+                onChange={setRecordAuto}
+              />
+            )}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import SettingsHeader from '@/components/settings/SettingsHeader'
 
 export default function GeneralSettings() {
   const [profile, setProfile] = useState({
@@ -26,18 +27,7 @@ export default function GeneralSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Account / Settings</h1>
-        <div className="relative w-72">
-          <Input
-          placeholder="Search anything here..."
-          className="pl-4 pr-4 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-purple-600"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-
-        </div>
-      </div>
+      <SettingsHeader search={search} setSearch={setSearch} />
 
       {/* Profile Information */}
       <section className="bg-white rounded-lg p-6 shadow border space-y-4">
