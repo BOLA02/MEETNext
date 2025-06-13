@@ -43,10 +43,8 @@ export default function SettingsSidebar() {
               isActive ? 'bg-purple-600 text-white' : 'hover:bg-gray-100 text-gray-700'
             }`}
           >
-            <div className='bg-purple-600 p-2 rounded-md'>
+            
                <Icon className="w-4 h-4 " />
-            </div>
-           
             {label}
           </button>
         )

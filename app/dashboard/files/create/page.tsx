@@ -39,7 +39,7 @@ export default function CreateFilePage() {
     <EditorLayout>
       <div className="flex items-center justify-between mb-2">
         <input
-          type="text"
+          type="text" 
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Title"

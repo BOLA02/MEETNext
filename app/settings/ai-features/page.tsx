@@ -142,10 +142,7 @@ export default function AIFeaturesSettings() {
         </Card>
       </div>
 
-      {/* Footer
-      <div className="pt-8 text-xs text-gray-500 text-center">
-        © 2025 Meetio Meetings. All rights reserved. Privacy Policy & Terms of Service
-      </div> */}
+      
     </div>
   )
 }

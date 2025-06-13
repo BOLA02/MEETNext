@@ -5,7 +5,9 @@ import { Video, Link2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
-import Link from 'next/link';
+import Link from 'next/link'
+
+
 
 
 export default function HomePage() {
@@ -28,9 +30,11 @@ export default function HomePage() {
     router.push("/dashboard")
   }
 
-  const handleStartInstantMeeting = () => {
-    router.push("/meeting/instant")
-  }
+//   const handleStartInstantMeeting = () => {
+//   const meetingId = nanoid(10)  
+//   router.push(`/meeting/${meetingId}`)
+// }
+
 
   if (isSignedIn) {
     router.push("/dashboard")
@@ -62,7 +66,7 @@ export default function HomePage() {
         {/* Link Icon */}
         <div className="mb-8">
           <div className="bg-purple-500 text-white p-3 rounded-full">
-            <Link2 className="h-6 w-6" />
+            <Link2 className="h-6 w-6" onClick={handleStartInstantMeeting}/>
           </div>
         </div>
 

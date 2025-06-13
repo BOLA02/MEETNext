@@ -85,7 +85,6 @@ export default function NotificationSettingsPage() {
         <p className="text-xs text-muted-foreground">
           Send notifications to activity center for the following:
         </p>
-
         <div className="space-y-6">
           {sections.map((section, sIdx) => (
             <div key={section.title} className="space-y-2">

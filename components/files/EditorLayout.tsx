@@ -1,91 +1,59 @@
 'use client'
 
-import {
-  ArrowLeft,
-  CornerUpLeft,
-  CornerUpRight,
-  Share2,
-  MoreVertical,
-  Pin,
-  Palette,
-  Plus
-} from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { ReactNode, useState } from 'react'
+import FileTopbar from './FileTopbar'
+import TextEditor from '../TextEditor'
+import DrawingCanvas from './DrawingCanvas'
+import { useEditorStore } from '@/lib/store/editorStore'
+import { useState, ReactNode } from 'react'
 
-interface Props {
-  children: ReactNode
-  dropdownOptions?: ReactNode
+interface EditorLayoutProps {
+  children?: ReactNode
 }
 
-export default function EditorLayout({ children, dropdownOptions }: Props) {
-  const router = useRouter()
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [showPalette, setShowPalette] = useState(false)
-  const [bgColor, setBgColor] = useState<string>('bg-white')
+export default function EditorLayout({ children }: EditorLayoutProps) {
+  const { bgColor, imageSrc, checklist, audioURL } = useEditorStore()
+  const [showCanvas, setShowCanvas] = useState(false)
 
+  const handleUndo = () => console.log('Undo triggered')
+  const handleRedo = () => console.log('Redo triggered')
 
   return (
-    <div className="px-6 py-4">
-      {/* Header Toolbar */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <button onClick={() => router.push('/dashboard/files')}>
-            <ArrowLeft />
-          </button>
-          <CornerUpLeft />
-          <CornerUpRight />
-          <Share2 />
+    <div className={`px-6 py-4 min-h-screen transition-colors ${bgColor}`}>
+      <FileTopbar onUndo={handleUndo} onRedo={handleRedo} setShowCanvas={setShowCanvas} />
+
+      {showCanvas && (
+        <div className="my-4">
+          <DrawingCanvas />
         </div>
+      )}
 
-        <div className="flex items-center gap-4 relative">
-          <button onClick={() => setDropdownOpen(!dropdownOpen)}>
-            <MoreVertical />
-          </button>
-          {dropdownOpen && (
-            <div className="absolute right-0 top-8 w-48 bg-white border rounded shadow z-50">
-              {dropdownOptions || (
-                <>
-                  <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50">Add to favorites</button>
-                  <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50">Copy to</button>
-                  <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50">Move to</button>
-                  <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50">Copy link</button>
-                  <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50">Save to templates</button>
-                </>
-              )}
-            </div>
-          )}
-          <Pin />
-          <div className="relative">
-            <button onClick={() => setShowPalette(!showPalette)}>
-                <Palette />
-            </button>
-
-            {showPalette && (
-                <div className="absolute top-8 right-0 bg-white shadow rounded p-2 grid grid-cols-5 gap-2 z-50">
-                {['bg-white', 'bg-gray-100', 'bg-yellow-100', 'bg-green-100', 'bg-blue-100'].map((color) => (
-                    <button
-                    key={color}
-                    onClick={() => {
-                        setBgColor(color)
-                        setShowPalette(false)
-                    }}
-                    className={`w-6 h-6 rounded ${color}`}
-                    />
-                ))}
-                </div>
-            )}
-            </div>
-
-          <Plus />
+      {imageSrc && (
+        <div className="my-4">
+          <img src={imageSrc} alt="Uploaded" className="max-w-full h-auto rounded shadow" />
         </div>
-      </div>
+      )}
 
-      {/* Editor Body */}
-     <div className={`mt-12 px-8 rounded-lg p-4 transition-colors duration-300 ${bgColor}`}>
-  {children}
-</div>
+      {checklist.length > 0 && (
+        <div className="my-4 space-y-2">
+          <h4 className="font-semibold">Checklist:</h4>
+          {checklist.map((item, i) => (
+            <label key={i} className="flex gap-2 items-center">
+              <input type="checkbox" /> {item}
+            </label>
+          ))}
+        </div>
+      )}
 
+      {audioURL && (
+        <div className="my-4">
+          <h4 className="font-semibold">Audio Note:</h4>
+          <audio controls src={audioURL}></audio>
+        </div>
+      )}
+
+      <TextEditor />
+
+      {children}  {/* <-- this was missing */}
     </div>
   )
 }

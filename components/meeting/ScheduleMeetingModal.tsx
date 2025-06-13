@@ -72,13 +72,13 @@ export default function ScheduleMeetingModal({ onClose }: { onClose: () => void 
             {step < steps.length - 1 ? (
               <button
                 onClick={handleNext}
-                className="px-4 py-2 text-sm rounded bg-emerald-700 text-white"
+                className="px-4 py-2 text-sm rounded bg-purple-700 text-white"
               >
                 Next
               </button>
             ) : (
               <button
-                className="px-4 py-2 text-sm rounded bg-emerald-700 text-white"
+                className="px-4 py-2 text-sm rounded bg-purple-700 text-white"
               >
                 Publish
               </button>
