@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { SetStateAction, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import FileTopbar from './FileTopbar'
 import MeetingNotesPanel from './MeetingNotesPanel'
@@ -24,11 +24,11 @@ export default function FileSection() {
             {/* Action Buttons */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-6">
               <button
-  onClick={() => router.push('/dashboard/files/create')}
-  className="border rounded-lg px-4 py-3 text-sm flex items-center gap-2 hover:bg-gray-50"
->
-  <FilePlus className="w-4 h-4" /> Create new file
-</button>
+                onClick={() => router.push('/dashboard/files/create')}
+                className="border rounded-lg px-4 py-3 text-sm flex items-center gap-2 hover:bg-gray-50"
+              >
+                <FilePlus className="w-4 h-4" /> Create new file
+              </button>
               <button
   onClick={() => router.push('/dashboard/files/create?insert=table')}
   className="border rounded-lg px-4 py-3 text-sm flex items-center gap-2 hover:bg-gray-50"
@@ -71,7 +71,7 @@ export default function FileSection() {
 
   return (
     <div className="space-y-6">
-      <FileTopbar activeTab={activeTab} onTabChange={setActiveTab} />
+    
       {renderTabContent()}
     </div>
   )

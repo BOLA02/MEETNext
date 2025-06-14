@@ -104,5 +104,53 @@ body {
   --input: 0 0% 100%;
 }
 
+/* Base container */
+.react-calendar {
+  @apply w-full bg-white p-4 rounded-xl shadow-sm text-sm;
+}
+
+/* Navigation bar (month + arrows) */
+.react-calendar__navigation {
+  @apply flex items-center justify-between mb-2;
+}
+
+/* Arrow buttons */
+.react-calendar__navigation button {
+  @apply text-gray-600 hover:text-purple-600 transition;
+}
+
+/* Label for current month */
+.react-calendar__navigation__label {
+  @apply font-semibold text-gray-800 text-base;
+}
+
+/* Weekday labels */
+.react-calendar__month-view__weekdays {
+  @apply text-center text-gray-500 uppercase text-xs mb-1;
+}
+.react-calendar__month-view__weekdays__weekday {
+  @apply py-1;
+}
+
+/* Each day tile */
+.react-calendar__tile {
+  @apply text-center py-2 rounded-md hover:bg-purple-100 transition;
+}
+
+/* Active selected date */
+.react-calendar__tile--active {
+  @apply bg-emerald-600 text-white rounded-md;
+}
+
+/* Today’s date */
+.react-calendar__tile--now {
+  @apply border border-emerald-500 text-emerald-600 font-semibold;
+}
+
+/* Remove default double arrows */
+.react-calendar__navigation__prev2-button,
+.react-calendar__navigation__next2-button {
+  display: none;
+}
 
 
