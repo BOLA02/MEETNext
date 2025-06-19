@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Mic, MicOff, Video, VideoOff, Settings, Copy, UserPlus, PhoneOff, Hand, Smile, Captions, MoreHorizontal, Share2 } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, Settings, Copy, UserPlus, PhoneOff, Hand, Smile, Captions, MoreHorizontal, Share2, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { io } from 'socket.io-client'
+import { v4 as uuidv4 } from 'uuid'
 
 // Remove mock participants, only show self
 const otherParticipants = []
@@ -30,6 +31,13 @@ export default function MeetingPage() {
   const [showStickers, setShowStickers] = useState(false)
   const [selectedSticker, setSelectedSticker] = useState(null)
   const socketRef = useRef(null)
+  const [reactions, setReactions] = useState({})
+  const [showChat, setShowChat] = useState(false)
+  const [chatMode, setChatMode] = useState('public') // 'public' | 'private'
+  const [hostId, setHostId] = useState(null)
+  const [messages, setMessages] = useState([])
+  const [chatInput, setChatInput] = useState('')
+  const [dmTarget, setDmTarget] = useState(null) // participant id for DM
 
   // Load user from localStorage/sessionStorage on client only
   useEffect(() => {
@@ -40,10 +48,23 @@ export default function MeetingPage() {
       const tempName = sessionStorage.getItem('meetio_temp_name')
       if (tempName) name = tempName
     }
+    // Always generate a unique ID for this user in this session
+    let myId = sessionStorage.getItem('meetio_user_id')
+    if (!myId) {
+      myId = uuidv4()
+      sessionStorage.setItem('meetio_user_id', myId)
+    }
+    // Fallback avatar: use initials if not set
+    function getInitialsAvatar(name) {
+      if (!name) return '/avatar-demo.jpg'
+      const initials = name.split(' ').map(n => n[0]).join('').toUpperCase()
+      // Use a simple SVG for initials
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=232323&color=fff&size=128&rounded=true`
+    }
     const me = {
-      id: 'me',
+      id: myId,
       name: name || 'You',
-      avatar: settings.avatar || '/avatar-demo.jpg',
+      avatar: settings.avatar || getInitialsAvatar(name),
       isMe: true,
       mic: micOn,
       video: videoOn,
@@ -59,9 +80,31 @@ export default function MeetingPage() {
       socketRef.current = io('ws://localhost:4000')
     }
     const socket = socketRef.current
-    socket.emit('join-room', { roomId: id, user: { name: user.name, avatar: user.avatar } })
+    socket.emit('join-room', { roomId: id, user: { id: user.id, name: user.name, avatar: user.avatar, mic: micOn, video: videoOn } })
     socket.on('participants', (list) => {
-      setParticipants(list.map((p) => ({ ...p, isMe: p.name === user.name })))
+      setParticipants(list.map((p) => ({ ...p, isMe: p.id === user.id })))
+    })
+    socket.on('reaction', ({ userId, emoji }) => {
+      setReactions((prev) => ({ ...prev, [userId]: emoji }))
+      if (userId === user.id) {
+        setSelectedSticker(emoji)
+        setTimeout(() => setSelectedSticker(null), 2000)
+      }
+      setTimeout(() => setReactions((prev) => {
+        const copy = { ...prev }; delete copy[userId]; return copy;
+      }), 2000)
+    })
+    socket.on('state-update', ({ userId, mic, video }) => {
+      setParticipants((prev) => prev.map(p => p.id === userId ? { ...p, mic, video } : p))
+    })
+    // Chat events
+    socket.on('chat-message', (msg) => {
+      setMessages((prev) => [...prev, msg])
+    })
+    socket.on('chat-mode', ({ mode, hostId }) => {
+      setChatMode(mode)
+      setHostId(hostId)
+      if (mode === 'public') setDmTarget(null)
     })
     return () => {
       socket.emit('leave-room', { roomId: id })
@@ -69,11 +112,12 @@ export default function MeetingPage() {
     }
   }, [user, id])
 
-  // Keep mic/video state in sync with self in participants
+  // Keep mic/video state in sync with self in participants and broadcast
   useEffect(() => {
-    if (!user) return
+    if (!user || !socketRef.current) return
     setParticipants((prev) => prev.map(p => p.isMe ? { ...p, mic: micOn, video: videoOn } : p))
-  }, [micOn, videoOn, user])
+    socketRef.current.emit('state-update', { roomId: id, userId: user.id, mic: micOn, video: videoOn })
+  }, [micOn, videoOn, user, id])
 
   useEffect(() => {
     setShowGrid(participants.length > 1)
@@ -148,9 +192,32 @@ export default function MeetingPage() {
     '👎', // Thumbs down
   ]
   const handleSelectSticker = (emoji) => {
-    setSelectedSticker(emoji)
     setShowStickers(false)
-    setTimeout(() => setSelectedSticker(null), 2000)
+    if (socketRef.current && user) {
+      socketRef.current.emit('reaction', { roomId: id, userId: user.id, emoji })
+    }
+  }
+
+  // Send chat message
+  const sendMessage = (e) => {
+    e.preventDefault()
+    if (!chatInput.trim()) return
+    const msg = {
+      roomId: id,
+      sender: { id: user.id, name: user.name, avatar: user.avatar },
+      recipientId: chatMode === 'private' ? dmTarget : null,
+      content: chatInput,
+      timestamp: Date.now(),
+    }
+    socketRef.current.emit('chat-message', msg)
+    setChatInput('')
+  }
+
+  // Host toggles chat mode
+  const toggleChatMode = () => {
+    if (user.id !== hostId) return
+    const newMode = chatMode === 'public' ? 'private' : 'public'
+    socketRef.current.emit('chat-mode', { roomId: id, mode: newMode })
   }
 
   if (!user) {
@@ -172,19 +239,29 @@ export default function MeetingPage() {
         {captionsOn && (
           <div className="absolute top-36 left-1/2 -translate-x-1/2 z-20 bg-blue-600 text-white px-6 py-2 rounded-full shadow font-semibold text-lg">Captions On</div>
         )}
-        {/* Sticker indicator */}
+        {/* Sticker indicator: only for local user, bottom center */}
         {selectedSticker && (
-          <div className="absolute top-48 left-1/2 -translate-x-1/2 z-20 text-6xl animate-bounce drop-shadow-lg">{selectedSticker}</div>
+          <div className="fixed left-1/2 -translate-x-1/2 bottom-32 z-50 text-5xl animate-sticker-fly pointer-events-none select-none drop-shadow-lg">
+            {selectedSticker}
+          </div>
         )}
-        {showGrid ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-8 mb-8 transition-all duration-300">
+        {/* Responsive grid for 2+ participants, solo view for 1 */}
+        {participants.length > 1 ? (
+          <div className={`grid gap-8 mb-8 transition-all duration-300 ${participants.length <= 4 ? 'grid-cols-2' : 'grid-cols-3'}`}>
             {participants.map((p) => (
               <div key={p.id} className="flex flex-col items-center">
-                <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-800 flex items-center justify-center transition-all duration-300">
-                  {p.video ? (
-                    <video autoPlay muted className="w-full h-full object-cover rounded-full bg-black" />
+                <div className="relative w-32 h-32 rounded-2xl overflow-hidden border-4 border-white shadow-lg bg-gray-800 flex items-center justify-center transition-all duration-300">
+                  {/* Only show local video for self, avatar for others */}
+                  {p.isMe && videoOn ? (
+                    <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover rounded-2xl bg-black" />
                   ) : (
                     <img src={p.avatar} alt={p.name} className="w-full h-full object-cover" />
+                  )}
+                  {/* Show reaction if present (for others only) */}
+                  {!p.isMe && reactions[p.id] && (
+                    <div className="absolute left-1/2 -translate-x-1/2 bottom-2 z-30 text-4xl animate-sticker-fly pointer-events-none select-none drop-shadow-lg">
+                      {reactions[p.id]}
+                    </div>
                   )}
                   {/* Mic/Video state */}
                   <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 bg-white/90 rounded-full px-3 py-1 shadow items-center">
@@ -192,7 +269,7 @@ export default function MeetingPage() {
                     <span>{p.video ? <Video className="text-gray-700 w-4 h-4" /> : <VideoOff className="text-red-500 w-4 h-4" />}</span>
                   </div>
                 </div>
-                <div className="text-white text-base font-medium mt-2">{p.name}{p.isMe && ' (You)'}</div>
+                <div className="text-white text-base font-medium mt-2 text-center max-w-[120px] truncate">{p.name}{p.isMe && ' (You)'}</div>
               </div>
             ))}
           </div>
@@ -256,6 +333,7 @@ export default function MeetingPage() {
           <ToolbarButton icon={<PhoneOff />} label="Leave call" onClick={handleLeave} red />
           <ToolbarButton icon={<Hand />} label="Raise hand" onClick={handleRaiseHand} />
           <ToolbarButton icon={<Smile />} label="Stickers" onClick={handleStickers} active={showStickers} />
+          <ToolbarButton icon={<MessageCircle />} label="Chat" onClick={() => setShowChat((v) => !v)} active={showChat} />
           <ToolbarButton icon={<Captions />} label="Captions" onClick={handleCaptions} red={captionsOn} />
           <ToolbarButton icon={<MoreHorizontal />} label="More" onClick={handleMore} />
         </div>
@@ -278,10 +356,60 @@ export default function MeetingPage() {
           </div>
         </div>
       )}
-      {/* Sticker indicator at bottom center */}
-      {selectedSticker && (
-        <div className="fixed left-1/2 -translate-x-1/2 bottom-36 z-50 text-5xl animate-sticker-fly pointer-events-none select-none drop-shadow-lg">
-          {selectedSticker}
+
+      {/* Chat sidebar */}
+      {showChat && (
+        <div className="fixed top-0 right-0 h-full w-[350px] bg-white border-l z-50 flex flex-col shadow-2xl animate-slide-in">
+          <div className="flex items-center justify-between px-4 py-3 border-b">
+            <div className="font-semibold text-lg">Chat</div>
+            <button onClick={() => setShowChat(false)} className="text-gray-500 hover:text-black text-xl">×</button>
+          </div>
+          {/* Host toggle */}
+          {user.id === hostId && (
+            <div className="px-4 py-2 border-b flex items-center gap-2">
+              <span className="text-sm font-medium">Mode:</span>
+              <button onClick={toggleChatMode} className={`px-3 py-1 rounded-full text-xs font-semibold ${chatMode === 'public' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{chatMode === 'public' ? 'Public' : 'Private'}</button>
+              <span className="text-xs text-gray-400">(Host only)</span>
+            </div>
+          )}
+          {/* Private mode: select DM target */}
+          {chatMode === 'private' && (
+            <div className="px-4 py-2 border-b">
+              <div className="text-xs text-gray-500 mb-1">Send to:</div>
+              <div className="flex flex-wrap gap-2">
+                {participants.filter(p => !p.isMe).map(p => (
+                  <button key={p.id} onClick={() => setDmTarget(p.id)} className={`px-2 py-1 rounded-full text-xs font-medium border ${dmTarget === p.id ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'}`}>{p.name}</button>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Chat messages */}
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 bg-gray-50">
+            {messages.filter(m => chatMode === 'public' ? true : (m.recipientId === user.id || m.sender.id === user.id)).map((m, i) => (
+              <div key={i} className={`flex ${m.sender.id === user.id ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[75%] px-3 py-2 rounded-lg shadow text-sm ${m.sender.id === user.id ? 'bg-blue-500 text-white' : 'bg-white border'}`}>
+                  <div className="font-semibold text-xs mb-1 flex items-center gap-2">
+                    <img src={m.sender.avatar} alt={m.sender.name} className="w-5 h-5 rounded-full inline-block mr-1" />
+                    {m.sender.name}
+                  </div>
+                  <div>{m.content}</div>
+                  <div className="text-[10px] text-right text-gray-400 mt-1">{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Chat input */}
+          <form onSubmit={sendMessage} className="p-3 border-t flex gap-2 bg-white">
+            <input
+              type="text"
+              className="flex-1 border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder={chatMode === 'public' ? 'Message everyone...' : dmTarget ? `Message ${participants.find(p => p.id === dmTarget)?.name || ''}...` : 'Select a participant...'}
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              disabled={chatMode === 'private' && !dmTarget}
+            />
+            <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded font-semibold disabled:opacity-50" disabled={!chatInput.trim() || (chatMode === 'private' && !dmTarget)}>Send</button>
+          </form>
         </div>
       )}
     </div>
