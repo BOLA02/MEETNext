@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Mic, MicOff, Video, VideoOff, Settings, Copy, UserPlus, PhoneOff, Hand, Smile, Captions, MoreHorizontal, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { io } from 'socket.io-client'
 
 // Remove mock participants, only show self
 const otherParticipants = []
@@ -28,21 +29,45 @@ export default function MeetingPage() {
   const [captionsOn, setCaptionsOn] = useState(false)
   const [showStickers, setShowStickers] = useState(false)
   const [selectedSticker, setSelectedSticker] = useState(null)
+  const socketRef = useRef(null)
 
-  // Load user from localStorage on client only
+  // Load user from localStorage/sessionStorage on client only
   useEffect(() => {
     const settings = JSON.parse(localStorage.getItem('general_settings_v1') || '{}')
+    let name = settings.firstName && settings.lastName ? `${settings.firstName} ${settings.lastName}` : ''
+    if (!name) {
+      // Try sessionStorage (from join form)
+      const tempName = sessionStorage.getItem('meetio_temp_name')
+      if (tempName) name = tempName
+    }
     const me = {
       id: 'me',
-      name: settings.firstName && settings.lastName ? `${settings.firstName} ${settings.lastName}` : 'You',
+      name: name || 'You',
       avatar: settings.avatar || '/avatar-demo.jpg',
       isMe: true,
       mic: micOn,
       video: videoOn,
     }
     setUser(me)
-    setParticipants([me])
   }, [])
+
+  // Socket.IO: join room and sync participants
+  useEffect(() => {
+    if (!user || !id) return
+    // Connect only once
+    if (!socketRef.current) {
+      socketRef.current = io('ws://localhost:4000')
+    }
+    const socket = socketRef.current
+    socket.emit('join-room', { roomId: id, user: { name: user.name, avatar: user.avatar } })
+    socket.on('participants', (list) => {
+      setParticipants(list.map((p) => ({ ...p, isMe: p.name === user.name })))
+    })
+    return () => {
+      socket.emit('leave-room', { roomId: id })
+      socket.disconnect()
+    }
+  }, [user, id])
 
   // Keep mic/video state in sync with self in participants
   useEffect(() => {
