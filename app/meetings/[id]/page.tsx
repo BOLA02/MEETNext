@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Mic, MicOff, Video, VideoOff, Settings, Copy, UserPlus, PhoneOff, Hand, Smile, Captions, MoreHorizontal, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 
 // Remove mock participants, only show self
 const otherParticipants = []
@@ -22,6 +23,11 @@ export default function MeetingPage() {
   const dateStr = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
   const localVideoRef = useRef(null)
+  const [localStream, setLocalStream] = useState(null)
+  const [handRaised, setHandRaised] = useState(false)
+  const [captionsOn, setCaptionsOn] = useState(false)
+  const [showStickers, setShowStickers] = useState(false)
+  const [selectedSticker, setSelectedSticker] = useState(null)
 
   // Load user from localStorage on client only
   useEffect(() => {
@@ -50,31 +56,77 @@ export default function MeetingPage() {
 
   // Show webcam feed when video is on
   useEffect(() => {
+    let stream;
     if (videoOn && localVideoRef.current) {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(stream => {
-        localVideoRef.current.srcObject = stream
-      })
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(s => {
+        stream = s;
+        localVideoRef.current.srcObject = stream;
+        setLocalStream(stream);
+      });
     } else if (localVideoRef.current) {
-      localVideoRef.current.srcObject = null
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        setLocalStream(null);
+      }
+      localVideoRef.current.srcObject = null;
     }
-  }, [videoOn])
+    // Cleanup on unmount
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        setLocalStream(null);
+      }
+    };
+  }, [videoOn]);
 
   // Copy link
   const handleCopy = () => {
     navigator.clipboard.writeText(meetingLink)
     setCopied(true)
+    toast.success('Meeting link copied!')
     setTimeout(() => setCopied(false), 1500)
   }
 
   // Toolbar actions
   const handleToggleMic = () => setMicOn((v) => !v)
   const handleToggleVideo = () => setVideoOn((v) => !v)
-  const handleLeave = () => router.push('/')
-  // Placeholder actions
-  const handleRaiseHand = () => {}
-  const handleStickers = () => {}
-  const handleCaptions = () => {}
+  const handleLeave = () => {
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+      setLocalStream(null);
+    }
+    router.push('/')
+  }
+  const handleRaiseHand = () => {
+    setHandRaised(true)
+    toast('You raised your hand ✋')
+    setTimeout(() => setHandRaised(false), 3000)
+  }
+  const handleStickers = () => setShowStickers((v) => !v)
+  const handleCaptions = () => setCaptionsOn((v) => !v)
   const handleMore = () => {}
+
+  // Stickers modal
+  // Google Meet style emoji stickers (from screenshot)
+  const stickers = [
+    '💖', // Heart with stars
+    '👍', // Thumbs up
+    '🎉', // Party popper
+    '👏', // Clapping hands
+    '😂', // Laughing
+    '😮', // Surprised
+    '😢', // Crying
+    '🤔', // Thinking
+    '👎', // Thumbs down
+  ]
+  const handleSelectSticker = (emoji) => {
+    setSelectedSticker(emoji)
+    setShowStickers(false)
+    setTimeout(() => setSelectedSticker(null), 2000)
+  }
 
   if (!user) {
     return <div className="flex-1 flex items-center justify-center min-h-screen bg-[#232323]"><div className="w-10 h-10 border-4 border-purple-300 border-t-transparent rounded-full animate-spin" /></div>;
@@ -87,6 +139,18 @@ export default function MeetingPage() {
 
       {/* Centered avatar/video and info */}
       <div className="flex-1 flex flex-col items-center justify-center">
+        {/* Hand raised indicator */}
+        {handRaised && (
+          <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 bg-yellow-200 text-yellow-900 px-6 py-2 rounded-full shadow font-semibold text-lg animate-bounce">✋ Hand Raised</div>
+        )}
+        {/* Captions on indicator */}
+        {captionsOn && (
+          <div className="absolute top-36 left-1/2 -translate-x-1/2 z-20 bg-blue-600 text-white px-6 py-2 rounded-full shadow font-semibold text-lg">Captions On</div>
+        )}
+        {/* Sticker indicator */}
+        {selectedSticker && (
+          <div className="absolute top-48 left-1/2 -translate-x-1/2 z-20 text-6xl animate-bounce drop-shadow-lg">{selectedSticker}</div>
+        )}
         {showGrid ? (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-8 mb-8 transition-all duration-300">
             {participants.map((p) => (
@@ -166,8 +230,8 @@ export default function MeetingPage() {
           <ToolbarButton icon={<Share2 />} label="Share" onClick={handleCopy} />
           <ToolbarButton icon={<PhoneOff />} label="Leave call" onClick={handleLeave} red />
           <ToolbarButton icon={<Hand />} label="Raise hand" onClick={handleRaiseHand} />
-          <ToolbarButton icon={<Smile />} label="Stickers" onClick={handleStickers} />
-          <ToolbarButton icon={<Captions />} label="Captions" onClick={handleCaptions} />
+          <ToolbarButton icon={<Smile />} label="Stickers" onClick={handleStickers} active={showStickers} />
+          <ToolbarButton icon={<Captions />} label="Captions" onClick={handleCaptions} red={captionsOn} />
           <ToolbarButton icon={<MoreHorizontal />} label="More" onClick={handleMore} />
         </div>
         {/* Date/time bottom left */}
@@ -175,15 +239,35 @@ export default function MeetingPage() {
           {dateStr} • {timeStr}
         </div>
       </div>
+
+      {/* Stickers bar (Google Meet style) */}
+      {showStickers && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-28 z-40 flex items-center justify-center">
+          <div className="flex gap-1 bg-[#232323] rounded-full shadow-2xl px-2 py-1 border border-black/30
+            transition-all duration-300 ease-out
+            animate-stickerbar-in"
+          >
+            {stickers.map((emoji) => (
+              <button key={emoji} className="text-xl md:text-2xl w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-full hover:bg-white/10 focus:bg-white/20 transition outline-none border-2 border-transparent focus:border-white" onClick={() => handleSelectSticker(emoji)}>{emoji}</button>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* Sticker indicator at bottom center */}
+      {selectedSticker && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-36 z-50 text-5xl animate-sticker-fly pointer-events-none select-none drop-shadow-lg">
+          {selectedSticker}
+        </div>
+      )}
     </div>
   )
 }
 
-function ToolbarButton({ icon, label, onClick, red = false }) {
+function ToolbarButton({ icon, label, onClick, red = false, active = false }) {
   return (
     <div className="flex flex-col items-center justify-center">
       <Button
-        className={`rounded-full w-14 h-14 ${red ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-white text-black'} shadow`}
+        className={`rounded-full w-14 h-14 ${red ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-white text-black'} shadow ${active ? 'bg-white/90' : ''}`}
         size="icon"
         onClick={onClick}
       >

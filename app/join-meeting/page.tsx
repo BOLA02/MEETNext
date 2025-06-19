@@ -1,6 +1,25 @@
+'use client'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image';
 
 export default function JoinMeetingPage() {
+  const [meetingId, setMeetingId] = useState('')
+  const [name, setName] = useState('')
+  const [remember, setRemember] = useState(false)
+  const router = useRouter()
+
+  const handleJoin = (e) => {
+    e.preventDefault()
+    if (!meetingId || !name) return
+    if (remember) {
+      localStorage.setItem('general_settings_v1', JSON.stringify({ firstName: name.split(' ')[0], lastName: name.split(' ').slice(1).join(' '), avatar: undefined }))
+    }
+    // Always save name for this session
+    sessionStorage.setItem('meetio_temp_name', name)
+    router.push(`/meetings/${meetingId}`)
+  }
+
   return (
     <div className="min-h-screen w-full bg-white">
       {/* Navbar */}
@@ -26,30 +45,38 @@ export default function JoinMeetingPage() {
 
             <div className="text-[64px] mb-6">📹</div>
 
-            <input
-              type="text"
-              placeholder="Enter meeting ID..."
-              className="w-full border border-gray-300 rounded px-4 py-3 mb-4 text-sm"
-            />
-            <input
-              type="text"
-              placeholder="Name"
-              className="w-full border border-gray-300 rounded px-4 py-3 mb-4 text-sm"
-            />
+            <form onSubmit={handleJoin} className="w-full">
+              <input
+                type="text"
+                placeholder="Enter meeting ID..."
+                className="w-full border border-gray-300 rounded px-4 py-3 mb-4 text-sm"
+                value={meetingId}
+                onChange={e => setMeetingId(e.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Name"
+                className="w-full border border-gray-300 rounded px-4 py-3 mb-4 text-sm"
+                value={name}
+                onChange={e => setName(e.target.value)}
+              />
 
-            <label className="flex items-center mb-4 text-sm text-gray-600">
-              <input type="checkbox" className="mr-2" />
-              Remember my name for future meetings
-            </label>
+              <label className="flex items-center mb-4 text-sm text-gray-600">
+                <input type="checkbox" className="mr-2" checked={remember} onChange={e => setRemember(e.target.checked)} />
+                Remember my name for future meetings
+              </label>
 
-            <div className="flex w-full gap-4 mb-4">
-              <button className="flex-1 bg-blue-300 text-white py-3 rounded text-sm" disabled>
-                Join
-              </button>
-              <button className="flex-1 border border-gray-300 py-3 rounded text-sm">
-                Cancel
-              </button>
-            </div>
+              <div className="flex w-full gap-4 mb-4">
+                <button
+                  type="submit"
+                  className={`flex-1 bg-blue-500 text-white py-3 rounded text-sm transition ${(!meetingId || !name) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'}`}
+                  disabled={!meetingId || !name}
+                >
+                  Join
+                </button>
+                <button type="button" className="flex-1 border border-gray-300 py-3 rounded text-sm" onClick={() => router.push('/')}>Cancel</button>
+              </div>
+            </form>
 
             <p className="text-xs text-center text-gray-400">
               By clicking "Join" you agree to our{' '}
@@ -71,5 +98,5 @@ export default function JoinMeetingPage() {
         </div>
       </main>
     </div>
-      );
+  );
 }
