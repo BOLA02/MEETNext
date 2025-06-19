@@ -10,11 +10,13 @@ export default function ChatTabContent({ activeTab }: { activeTab: string }) {
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
 
   return (
-    <div className="flex h-full m-5 rounded-t-lg">
-      <div className="w-100 rounded-t-lg ">
+    <div className="flex h-full bg-white rounded-lg overflow-hidden shadow-sm">
+      <div className="w-80 border-r">
         <ChatListPanel activeTab={activeTab} onSelect={setSelectedChat} />
       </div>
-      <ChatPanel chat={selectedChat} />
+      <div className="flex-1">
+        <ChatPanel chat={selectedChat} />
+      </div>
     </div>
   );
 }

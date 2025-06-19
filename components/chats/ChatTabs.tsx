@@ -23,34 +23,25 @@ export default function ChatTabs({
   onChange: (tab: string) => void;
 }) {
   return (
-    <div className="bg-white  px-4">
-      <div className="flex justify-start gap-6 relative">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onChange(tab.id)}
-              className={`flex flex-col items-center justify-center py-2 focus:outline-none ${
-                isActive ? "text-purple-800 font-medium" : "text-purple-500"
-              }`}
-              style={{ minWidth: '60px' }} // consistent width for each tab
-            >
-              <Icon size={20} />
-              <span className="text-xs mt-1">{tab.label}</span>
-            </button>
-          );
-        })}
-        {/* Progress bar */}
-        <div
-          className="absolute bottom-0 h-1 bg-purple-600 rounded transition-all duration-300"
-          style={{
-            width: '60px',
-            left: `${tabs.findIndex((tab) => tab.id === activeTab) * (60 + 24)}px` // 60px tab + 24px gap
-          }}
-        />
-      </div>
+    <div className="flex justify-start gap-8">
+      {tabs.map((tab) => {
+        const Icon = tab.icon;
+        const isActive = activeTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            onClick={() => onChange(tab.id)}
+            className={`flex items-center gap-2 py-2 px-1 border-b-2 transition-colors focus:outline-none ${
+              isActive 
+                ? "text-purple-600 border-purple-600 font-medium" 
+                : "text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            <Icon size={18} />
+            <span className="text-sm">{tab.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

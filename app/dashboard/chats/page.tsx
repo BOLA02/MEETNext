@@ -9,9 +9,13 @@ export default function ChatsPage() {
   const [activeTab, setActiveTab] = useState("all");
 
   return (
-    <div className="flex flex-col h-full">
-      <ChatTabs activeTab={activeTab} onChange={setActiveTab} />
-      <ChatTabContent activeTab={activeTab} />
+    <div className="flex flex-col h-full bg-gray-50">
+      <div className="bg-white border-b px-6 py-4">
+        <ChatTabs activeTab={activeTab} onChange={setActiveTab} />
+      </div>
+      <div className="flex-1 p-6">
+        <ChatTabContent activeTab={activeTab} />
+      </div>
     </div>
   );
 }

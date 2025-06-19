@@ -2,7 +2,11 @@ import type React from "react"
 import "./globals.css"
 import { Inter } from "next/font/google"
 import { AccessibilityProvider } from '@/hooks/useAccessibility'
+<<<<<<< HEAD
 import { Toaster } from "sonner"
+=======
+import AppearanceProvider from '@/components/AppearanceProvider'
+>>>>>>> 357461e36960a8abbcdd23b828f46aa42781da1c
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -20,6 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
+<<<<<<< HEAD
            <AccessibilityProvider>
             <Toaster
               toastOptions={{
@@ -34,6 +39,12 @@ export default function RootLayout({
             {children}
             </AccessibilityProvider>
             </body>
+=======
+        <AppearanceProvider>
+          <AccessibilityProvider>{children}</AccessibilityProvider>
+        </AppearanceProvider>
+      </body>
+>>>>>>> 357461e36960a8abbcdd23b828f46aa42781da1c
     </html>
   )
 }
