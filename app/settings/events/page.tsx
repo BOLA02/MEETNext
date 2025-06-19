@@ -13,10 +13,34 @@ import SettingToggle from '@/components/settings/fields/SettingToggle'
 import SettingSelect from '@/components/settings/fields/SettingSelect'
 import SettingRadioGroup from '@/components/settings/fields/SettingRadioGroup'
 
+const CAMERA_OPTIONS = ['MacBook HD Camera', 'External USB Camera']
+const SPEAKER_OPTIONS = ['Default Speakers', 'Sonarist SST Audio']
+const MIC_OPTIONS = ['Internal Microphone', 'External Mic']
+const EVENT_TYPE_OPTIONS = ['Hybrid', 'Virtual', 'In-person']
+const DURATION_OPTIONS = ['Custom', '30 min', '1 hour']
+const PARTICIPANT_LIMIT_OPTIONS = ['49 participants', '49+ participants']
+const RINGTONE_OPTIONS = ['Default', 'Chime', 'Pulse']
+const SKIN_TONES = ['👍', '✋', '👏']
+const REACTION_EMOJIS = ['👍', '✋', '👏', '😂']
+
+const LS_KEY = 'event_settings_v1'
+
 export default function EventsSettings() {
   const videoRef = useRef<HTMLVideoElement>(null)
 
   const [search, setSearch] = useState('')
+
+  const [settings, setSettings] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(LS_KEY)
+      return saved ? JSON.parse(saved) : {}
+    }
+    return {}
+  })
+
+  // Video preview
+  const [videoFile, setVideoFile] = useState(null)
+  const [videoUrl, setVideoUrl] = useState('')
 
   const [camera, setCamera] = useState('MacBook HD Camera')
   const [speaker, setSpeaker] = useState('Default Speakers')
@@ -33,12 +57,35 @@ export default function EventsSettings() {
   const searchTerm = search.trim().toLowerCase()
 
   useEffect(() => {
-    navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-      }
-    })
-  }, [])
+    localStorage.setItem(LS_KEY, JSON.stringify(settings))
+  }, [settings])
+
+  // Video preview from camera
+  useEffect(() => {
+    if (!videoFile) {
+      navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+        if (videoRef.current) videoRef.current.srcObject = stream
+      })
+    }
+  }, [videoFile])
+
+  // Video preview from file
+  useEffect(() => {
+    if (videoFile) {
+      const url = URL.createObjectURL(videoFile)
+      setVideoUrl(url)
+      if (videoRef.current) videoRef.current.srcObject = null
+    } else {
+      setVideoUrl('')
+    }
+  }, [videoFile])
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0]
+    if (file) setVideoFile(file)
+  }
+
+  const handleChange = (key, value) => setSettings((s) => ({ ...s, [key]: value }))
 
   const match = (text: string) => text.toLowerCase().includes(searchTerm)
 
@@ -47,121 +94,166 @@ export default function EventsSettings() {
       <SettingsHeader search={search} setSearch={setSearch} />
 
       {/* Video Settings */}
-      {(searchTerm === '' || match('video') || match('camera') || match('microphone') || match('speaker')) && (
+      {(match('video') || match('camera')) && (
         <section className="bg-white p-6 rounded-lg shadow border space-y-6">
-          <h2 className="text-lg font-semibold">Video Settings</h2>
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            className="w-full rounded-lg border object-cover h-80"
-          />
-
-          <div className="max-w-md space-y-4">
-            {match('camera') && (
-              <SettingSelect
-                label="Camera"
-                options={['MacBook HD Camera', 'External USB Camera']}
-                value={camera}
-                onChange={setCamera}
-              />
+          <h2 className="text-lg font-semibold">Video settings</h2>
+          <div className="relative w-full max-w-md mx-auto">
+            {videoUrl ? (
+              <video src={videoUrl} controls autoPlay muted playsInline className="w-full rounded-lg border object-cover h-56" />
+            ) : (
+              <video ref={videoRef} autoPlay muted playsInline className="w-full rounded-lg border object-cover h-56" />
             )}
-
-            {match('speaker') && (
-              <SettingSelect
-                label="Speakers"
-                options={['Default Speakers', 'Sonarist SST Audio']}
-                value={speaker}
-                onChange={setSpeaker}
-              />
-            )}
-
-            {match('microphone') && (
-              <SettingSelect
-                label="Microphone"
-                options={['Internal Microphone', 'External Mic']}
-                value={micDevice}
-                onChange={setMicDevice}
-              />
-            )}
-
-            {match('event type') && (
-              <SettingSelect
-                label="Event Type"
-                options={['Hybrid event', 'In-person', 'Virtual']}
-                value={eventType}
-                onChange={setEventType}
-              />
-            )}
-
-            {match('duration') && (
-              <SettingSelect
-                label="Event Duration"
-                options={['Custom duration', '30 min', '1 hour']}
-                value={eventDuration}
-                onChange={setEventDuration}
-              />
-            )}
-
-            {match('spatial') && (
-              <SettingToggle
-                label="Enable spatial audio"
-                checked={spatialAudio}
-                onChange={setSpatialAudio}
-              />
-            )}
+            <input type="file" accept="video/*" className="hidden" id="video-upload" onChange={handleFileChange} />
+            <label htmlFor="video-upload" className="absolute top-2 right-2 bg-white/80 rounded-full p-2 shadow cursor-pointer">📷</label>
+          </div>
+          <div className="flex gap-4 flex-wrap">
+            <SettingSelect label="Camera" options={CAMERA_OPTIONS} value={settings.camera || CAMERA_OPTIONS[0]} onChange={v => handleChange('camera', v)} />
+            <SettingToggle label="Original ratio" checked={!!settings.originalRatio} onChange={v => handleChange('originalRatio', v)} />
+            <SettingToggle label="HD" checked={!!settings.hd} onChange={v => handleChange('hd', v)} />
+            <SettingToggle label="Mirror my video" checked={!!settings.mirror} onChange={v => handleChange('mirror', v)} />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <SettingToggle label="Always display participant names on their video" checked={!!settings.displayNames} onChange={v => handleChange('displayNames', v)} />
+            <SettingToggle label="Turn off video when joining" checked={!!settings.turnOffVideo} onChange={v => handleChange('turnOffVideo', v)} />
+            <SettingToggle label="Always show preview when joining" checked={!!settings.showPreview} onChange={v => handleChange('showPreview', v)} />
+            <SettingToggle label="Hide non-video participants" checked={!!settings.hideNonVideo} onChange={v => handleChange('hideNonVideo', v)} />
+            <SettingToggle label="Hide self view" checked={!!settings.hideSelf} onChange={v => handleChange('hideSelf', v)} />
+            <SettingToggle label="Show me as an active speaker when I talk" checked={!!settings.activeSpeaker} onChange={v => handleChange('activeSpeaker', v)} />
           </div>
         </section>
       )}
 
-      {/* Event Controls */}
-      {(searchTerm === '' || match('co-host') || match('gallery') || match('noise') || match('record')) && (
+      {/* Audio Settings */}
+      {(match('audio') || match('microphone') || match('speaker')) && (
         <section className="bg-white p-6 rounded-lg shadow border space-y-6">
-          <h2 className="text-lg font-semibold">Advanced Event Controls</h2>
+          <h2 className="text-lg font-semibold">Audio settings</h2>
+          <div className="flex gap-4 flex-wrap">
+            <SettingSelect label="Speakers" options={SPEAKER_OPTIONS} value={settings.speaker || SPEAKER_OPTIONS[0]} onChange={v => handleChange('speaker', v)} />
+            <SettingSelect label="Microphone" options={MIC_OPTIONS} value={settings.mic || MIC_OPTIONS[0]} onChange={v => handleChange('mic', v)} />
+            <SettingToggle label="Spatial audio" checked={!!settings.spatialAudio} onChange={v => handleChange('spatialAudio', v)} />
+            <SettingToggle label="Use separate audio device for ringtone" checked={!!settings.separateRingtone} onChange={v => handleChange('separateRingtone', v)} />
+          </div>
+          <div className="flex items-center gap-4">
+            <label>Volume</label>
+            <input type="range" min={0} max={100} value={settings.volume || 50} onChange={e => handleChange('volume', +e.target.value)} />
+            <SettingToggle label="Automatically adjust microphone volume" checked={!!settings.autoMicVolume} onChange={v => handleChange('autoMicVolume', v)} />
+          </div>
+          <div className="space-y-2">
+            <h4 className="font-semibold">Audio profile</h4>
+            <SettingRadioGroup
+              label="Background noise suppression"
+              value={settings.noiseSuppression || 'auto'}
+              onChange={v => handleChange('noiseSuppression', v)}
+              options={[
+                { label: 'Auto', value: 'auto' },
+                { label: 'Low', value: 'low' },
+                { label: 'Medium', value: 'medium' },
+                { label: 'High', value: 'high' },
+              ]}
+            />
+            <SettingToggle label="Personalized audio isolation" checked={!!settings.audioIsolation} onChange={v => handleChange('audioIsolation', v)} />
+            <SettingToggle label="Original sound for musicians" checked={!!settings.originalSound} onChange={v => handleChange('originalSound', v)} />
+            <SettingToggle label="Live performance audio" checked={!!settings.livePerformance} onChange={v => handleChange('livePerformance', v)} />
+          </div>
+          <div className="flex gap-4 flex-wrap">
+            <SettingSelect label="Ringtone scheme" options={RINGTONE_OPTIONS} value={settings.ringtone || RINGTONE_OPTIONS[0]} onChange={v => handleChange('ringtone', v)} />
+            <SettingToggle label="Automatically join audio by computer when joining" checked={!!settings.autoJoinAudio} onChange={v => handleChange('autoJoinAudio', v)} />
+            <SettingToggle label="Mute my microphone when joining" checked={!!settings.muteOnJoin} onChange={v => handleChange('muteOnJoin', v)} />
+            <SettingToggle label="Press and hold space key to temporarily unmute yourself" checked={!!settings.spaceUnmute} onChange={v => handleChange('spaceUnmute', v)} />
+            <SettingToggle label="Sync button on headset" checked={!!settings.syncHeadset} onChange={v => handleChange('syncHeadset', v)} />
+          </div>
+        </section>
+      )}
 
-          <div className="max-w-md space-y-4">
-            {match('co-host') && (
-              <SettingToggle
-                label="Enable co-host controls"
-                checked={enableCohost}
-                onChange={setEnableCohost}
-              />
-            )}
+      {/* Event Details & Host/Co-host */}
+      {(match('event') || match('host') || match('co-host')) && (
+        <section className="bg-white p-6 rounded-lg shadow border space-y-6">
+          <h2 className="text-lg font-semibold">Event details</h2>
+          <div className="flex gap-4 flex-wrap">
+            <SettingSelect label="Event type" options={EVENT_TYPE_OPTIONS} value={settings.eventType || EVENT_TYPE_OPTIONS[0]} onChange={v => handleChange('eventType', v)} />
+            <SettingSelect label="Event duration" options={DURATION_OPTIONS} value={settings.eventDuration || DURATION_OPTIONS[0]} onChange={v => handleChange('eventDuration', v)} />
+            <SettingSelect label="Participant limit" options={PARTICIPANT_LIMIT_OPTIONS} value={settings.participantLimit || PARTICIPANT_LIMIT_OPTIONS[0]} onChange={v => handleChange('participantLimit', v)} />
+            <SettingToggle label="Auto-end the event when time runs out" checked={!!settings.autoEnd} onChange={v => handleChange('autoEnd', v)} />
+            <SettingSelect label="Event visibility" options={['Public - Anyone can join', 'Private - Invite only']} value={settings.visibility || 'Public - Anyone can join'} onChange={v => handleChange('visibility', v)} />
+          </div>
+          <div className="flex gap-4 flex-wrap">
+            <SettingToggle label="Assign default co-hosts for recurring events" checked={!!settings.defaultCohosts} onChange={v => handleChange('defaultCohosts', v)} />
+            <SettingToggle label="Allow co-hosts to start the event without the main host" checked={!!settings.cohostStart} onChange={v => handleChange('cohostStart', v)} />
+          </div>
+        </section>
+      )}
 
-            {match('gallery') && (
-              <SettingRadioGroup
-                label="Gallery layout"
-                value={galleryLayout}
-                onChange={setGalleryLayout}
-                options={[
-                  { label: 'Grid view', value: 'Grid view' },
-                  { label: 'Speaker view', value: 'Speaker view' },
-                  { label: 'Sidebar view', value: 'Sidebar view' },
-                ]}
-              />
-            )}
+      {/* Registration & Reminders */}
+      {(match('registration') || match('reminder') || match('waitlist')) && (
+        <section className="bg-white p-6 rounded-lg shadow border space-y-6">
+          <h2 className="text-lg font-semibold">Registration and reminders</h2>
+          <div className="flex gap-4 flex-wrap">
+            <SettingToggle label="Open registration (anyone can register)" checked={!!settings.openRegistration} onChange={v => handleChange('openRegistration', v)} />
+            <SettingToggle label="Approval-based registration (host manually approves attendees)" checked={!!settings.approvalRegistration} onChange={v => handleChange('approvalRegistration', v)} />
+            <SettingToggle label="Registration questions (custom fields for collecting attendee details)" checked={!!settings.registrationQuestions} onChange={v => handleChange('registrationQuestions', v)} />
+          </div>
+          <div className="flex gap-4 flex-wrap items-end">
+            <div>
+              <label className="block font-medium mb-1">Reminder frequency</label>
+              <select className="border rounded px-2 py-1" value={settings.reminderFreq || '1 hour before'} onChange={e => handleChange('reminderFreq', e.target.value)}>
+                <option>1 hour before</option>
+                <option>1 day before</option>
+                <option>10 minutes before</option>
+              </select>
+            </div>
+            <div>
+              <label className="block font-medium mb-1">Include event calendar or links</label>
+              <input className="border rounded px-2 py-1" placeholder="Add event calendar link..." value={settings.calendarLink || ''} onChange={e => handleChange('calendarLink', e.target.value)} />
+            </div>
+            <div>
+              <label className="block font-medium mb-1">Custom reminder message</label>
+              <input className="border rounded px-2 py-1" placeholder="Add reminder message..." value={settings.reminderMsg || ''} onChange={e => handleChange('reminderMsg', e.target.value)} />
+            </div>
+          </div>
+          <div className="flex gap-4 flex-wrap">
+            <SettingToggle label="Enable a waitlist if the event reaches capacity" checked={!!settings.waitlist} onChange={v => handleChange('waitlist', v)} />
+            <SettingToggle label="Auto-invite waitlisted attendees if space opens up" checked={!!settings.autoInviteWaitlist} onChange={v => handleChange('autoInviteWaitlist', v)} />
+          </div>
+        </section>
+      )}
 
-            {match('noise') && (
-              <SettingRadioGroup
-                label="Noise profile"
-                value={noiseProfile}
-                onChange={setNoiseProfile}
-                options={[
-                  { label: 'Standard', value: 'Standard' },
-                  { label: 'Low background noise', value: 'Low background noise' },
-                  { label: 'High background noise', value: 'High background noise' },
-                ]}
-              />
-            )}
+      {/* Event Templates */}
+      {(match('template')) && (
+        <section className="bg-white p-6 rounded-lg shadow border space-y-6">
+          <h2 className="text-lg font-semibold">Event templates</h2>
+          <div className="flex gap-4 flex-wrap">
+            <button className="border rounded px-4 py-2 bg-purple-50 hover:bg-purple-100" onClick={() => alert('Save current settings as template (not implemented)')}>Save as template</button>
+            <button className="border rounded px-4 py-2 bg-gray-50 hover:bg-gray-100" onClick={() => alert('Load template (not implemented)')}>Load template</button>
+          </div>
+        </section>
+      )}
 
-            {match('record') && (
-              <SettingToggle
-                label="Auto-record meeting"
-                checked={recordAuto}
-                onChange={setRecordAuto}
-              />
-            )}
+      {/* Event Interaction & Engagement */}
+      {(match('chat') || match('emoji') || match('reaction') || match('poll') || match('survey')) && (
+        <section className="bg-white p-6 rounded-lg shadow border space-y-6">
+          <h2 className="text-lg font-semibold">Event interaction and engagement</h2>
+          <div className="space-y-2">
+            <h4 className="font-semibold">Chat & Q&A Settings</h4>
+            <SettingToggle label="Enable/disable public chat" checked={!!settings.publicChat} onChange={v => handleChange('publicChat', v)} />
+            <SettingToggle label="Moderated Q&A (hosts approve questions before they appear)" checked={!!settings.moderatedQA} onChange={v => handleChange('moderatedQA', v)} />
+            <SettingToggle label="Allow anonymous questions" checked={!!settings.anonQuestions} onChange={v => handleChange('anonQuestions', v)} />
+          </div>
+          <div className="space-y-2">
+            <h4 className="font-semibold">Polls & Surveys</h4>
+            <SettingToggle label="Enable pre-event and post-event surveys" checked={!!settings.surveys} onChange={v => handleChange('surveys', v)} />
+            <SettingToggle label="Real-time polling options during events" checked={!!settings.polls} onChange={v => handleChange('polls', v)} />
+          </div>
+          <div className="space-y-2">
+            <h4 className="font-semibold">Virtual Reactions & Emoji</h4>
+            <div className="flex gap-2 items-center">
+              <span>Skin tone:</span>
+              {SKIN_TONES.map((tone) => (
+                <button key={tone} className={`text-2xl px-1 ${settings.skinTone === tone ? 'ring-2 ring-purple-500 rounded' : ''}`} onClick={() => handleChange('skinTone', tone)}>{tone}</button>
+              ))}
+            </div>
+            <SettingToggle label="Allow attendees to send emojis or GIFs in chat" checked={!!settings.allowEmojis} onChange={v => handleChange('allowEmojis', v)} />
+            <SettingToggle label={`Restrict reactions to these emojis ${REACTION_EMOJIS.join(' ')}`} checked={!!settings.restrictReactions} onChange={v => handleChange('restrictReactions', v)} />
+            <SettingToggle label="Display your reaction above toolbar" checked={!!settings.displayReactionToolbar} onChange={v => handleChange('displayReactionToolbar', v)} />
           </div>
         </section>
       )}
