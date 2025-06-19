@@ -5,11 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { Mic, MicOff, Video, VideoOff, Settings, Copy, UserPlus, PhoneOff, Hand, Smile, Captions, MoreHorizontal, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-// Mock participants for now (other than self)
-const otherParticipants = [
-  { id: 'user2', name: 'Felix Opoku Ameyaw', avatar: '/avatars/user2.jpg', mic: true, video: false },
-  { id: 'user3', name: 'Jane Doe', avatar: '/avatars/user3.jpg', mic: false, video: false },
-]
+// Remove mock participants, only show self
+const otherParticipants = []
 
 export default function MeetingPage() {
   const { id } = useParams()
@@ -38,7 +35,7 @@ export default function MeetingPage() {
       video: videoOn,
     }
     setUser(me)
-    setParticipants([me, ...otherParticipants])
+    setParticipants([me])
   }, [])
 
   // Keep mic/video state in sync with self in participants
@@ -111,12 +108,12 @@ export default function MeetingPage() {
             ))}
           </div>
         ) : videoOn ? (
-          <div className="relative flex flex-col items-center mb-8 w-full h-full justify-center transition-all duration-300">
+          <div className="relative flex flex-col items-center mb-4 w-full h-full justify-center transition-all duration-300">
             <video
               ref={localVideoRef}
               autoPlay
               muted
-              className="w-[90vw] h-[70vh] max-w-4xl max-h-[80vh] object-cover rounded-2xl bg-black shadow-2xl border-4 border-white"
+              className="w-[96vw] h-[80vh] max-w-5xl max-h-[85vh] object-cover rounded-3xl bg-black shadow-2xl border-4 border-white transition-all duration-300"
             />
             {/* Overlay bar */}
             <div className="absolute left-1/2 -translate-x-1/2 bottom-8 flex gap-3 bg-white/90 rounded-full px-4 py-2 shadow items-center">
@@ -124,39 +121,41 @@ export default function MeetingPage() {
               <Button size="icon" variant="ghost" className={videoOn ? 'text-gray-700' : 'text-red-500'} onClick={handleToggleVideo} title={videoOn ? 'Stop video' : 'Start video'}>{videoOn ? <Video /> : <VideoOff />}</Button>
               <Button size="icon" variant="ghost" className="text-gray-700"><Settings /></Button>
             </div>
+            <div className="text-white text-2xl font-semibold mt-6 transition-all duration-300">{user.name}</div>
           </div>
         ) : (
-          <div className="relative flex flex-col items-center mb-8">
-            <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-800 flex items-center justify-center">
+          <div className="relative flex flex-col items-center mb-4 transition-all duration-300">
+            <div className="w-60 h-60 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-gray-800 flex items-center justify-center transition-all duration-300">
               <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
             </div>
             {/* Overlay bar */}
-            <div className="absolute left-1/2 -translate-x-1/2 bottom-4 flex gap-3 bg-white/90 rounded-full px-4 py-2 shadow items-center">
+            <div className="absolute left-1/2 -translate-x-1/2 bottom-8 flex gap-3 bg-white/90 rounded-full px-4 py-2 shadow items-center">
               <Button size="icon" variant="ghost" className={micOn ? 'text-gray-700' : 'text-red-500'} onClick={handleToggleMic} title={micOn ? 'Mute' : 'Unmute'}>{micOn ? <Mic /> : <MicOff />}</Button>
               <Button size="icon" variant="ghost" className={videoOn ? 'text-gray-700' : 'text-red-500'} onClick={handleToggleVideo} title={videoOn ? 'Stop video' : 'Start video'}>{videoOn ? <Video /> : <VideoOff />}</Button>
               <Button size="icon" variant="ghost" className="text-gray-700"><Settings /></Button>
             </div>
+            <div className="text-white text-2xl font-semibold mt-6 transition-all duration-300">{user.name}</div>
           </div>
         )}
-        <div className="text-white text-lg font-medium mb-8">{user.name}</div>
-
-        {/* Meeting info card */}
-        <div className="bg-white rounded-2xl shadow-lg px-8 py-6 flex flex-col items-center w-[350px] mb-8">
-          <div className="font-semibold text-gray-800 mb-2">Your meeting has started</div>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="bg-gray-100 px-3 py-2 rounded text-sm text-gray-700 font-mono select-all">
-              {meetingLink}
+        {/* Meeting info card: only show if grid (not solo) */}
+        {showGrid && (
+          <div className="bg-white rounded-2xl shadow-lg px-8 py-6 flex flex-col items-center w-[350px] mb-8 transition-all duration-300">
+            <div className="font-semibold text-gray-800 mb-2">Your meeting has started</div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="bg-gray-100 px-3 py-2 rounded text-sm text-gray-700 font-mono select-all">
+                {meetingLink}
+              </div>
+              <Button size="icon" variant="ghost" className="text-purple-600" onClick={handleCopy} title="Copy link">
+                <Copy />
+              </Button>
             </div>
-            <Button size="icon" variant="ghost" className="text-purple-600" onClick={handleCopy} title="Copy link">
-              <Copy />
+            <Button className="w-full bg-teal-500 hover:bg-teal-600 text-white rounded-full font-semibold flex items-center gap-2 justify-center mb-2">
+              <UserPlus className="h-5 w-5" /> Add more people
             </Button>
+            <div className="text-xs text-gray-500 text-center">People you share this link with can join automatically</div>
+            {copied && <div className="text-green-600 text-xs mt-2">Copied!</div>}
           </div>
-          <Button className="w-full bg-teal-500 hover:bg-teal-600 text-white rounded-full font-semibold flex items-center gap-2 justify-center mb-2">
-            <UserPlus className="h-5 w-5" /> Add more people
-          </Button>
-          <div className="text-xs text-gray-500 text-center">People you share this link with can join automatically</div>
-          {copied && <div className="text-green-600 text-xs mt-2">Copied!</div>}
-        </div>
+        )}
       </div>
 
       {/* Bottom toolbar */}
