@@ -5,8 +5,8 @@ import { Video, Link2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
-import Link from 'next/link';
-
+import Link from 'next/link'
+import { toast } from "sonner"
 
 export default function HomePage() {
   const [isSignedIn, setIsSignedIn] = useState(false)
@@ -28,9 +28,35 @@ export default function HomePage() {
     router.push("/dashboard")
   }
 
-  const handleStartInstantMeeting = () => {
-    router.push("/meeting/instant")
+
+  const generateMeetingLink = () => {
+    const randomId = Math.random().toString(36).substring(2, 10)
+    return `${window.location.origin}/meeting/${randomId}`
   }
+
+  const handleStartInstantMeeting = () => {
+  const meetingId = Math.random().toString(36).substring(2, 10)
+  router.push(`/meetings/${meetingId}`)
+}
+
+const handleCopyLink = () => {
+  const meetingId = Math.random().toString(36).substring(2, 10)
+  const meetingLink = `${window.location.origin}/meetings/${meetingId}`
+  navigator.clipboard.writeText(meetingLink)
+    .then(() => {
+      toast.success("Meeting link copied to clipboard!", {
+        style: {
+          backgroundColor: '#7e22ce', // purple-600
+          color: '#fff'
+        }
+      })
+    })
+    .catch(() => toast.error("Failed to copy the meeting link."))
+
+  // Immediately redirect after copying
+  router.push(`/meetings/${meetingId}`)
+}
+
 
   if (isSignedIn) {
     router.push("/dashboard")
@@ -39,7 +65,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="flex items-center justify-between p-6 bg-white border-b">
         <h1 className="text-2xl font-bold text-purple-500">Meet</h1>
         <div className="flex items-center gap-4">
@@ -57,38 +82,39 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex flex-col items-center justify-center px-6 py-12 max-w-2xl mx-auto">
-        {/* Link Icon */}
+        {/* Copy link button */}
         <div className="mb-8">
-          <div className="bg-purple-500 text-white p-3 rounded-full">
+          <button
+            onClick={handleCopyLink}
+            className="bg-purple-500 text-white p-3 rounded-full hover:bg-purple-600 transition"
+            title="Copy meeting link"
+          >
             <Link2 className="h-6 w-6" />
-          </div>
+          </button>
         </div>
 
-        {/* Illustration */}
-       <div className="mb-8 flex justify-center">
-        <img
-          src="/people.png"
-          alt="People working together"
-          className="w-80 h-48 object-cover rounded-lg"
-        />
-      </div>
-
+        <div className="mb-8 flex justify-center">
+          <img
+            src="/people.png"
+            alt="People working together"
+            className="w-80 h-48 object-cover rounded-lg"
+          />
+        </div>
 
         <p className="text-gray-600 text-center mb-8 max-w-md">
           Copy and share meeting link with other people to join your meeting
         </p>
 
         <div className="w-full max-w-md space-y-4 mb-6">
-         <Link href="/join-meeting" passHref>
-        <Button 
-          className="w-full bg-purple-500 hover:bg-purple-600 text-white py-6 text-lg rounded-full"
-          size="lg"
-        >
-          Join a Meeting
-        </Button>
-        </Link>
+          <Link href="/join-meeting" passHref>
+            <Button 
+              className="w-full bg-purple-500 hover:bg-purple-600 text-white py-6 text-lg rounded-full"
+              size="lg"
+            >
+              Join a Meeting
+            </Button>
+          </Link>
 
           <Button
             onClick={handleStartInstantMeeting}
@@ -105,7 +131,6 @@ export default function HomePage() {
             placeholder="Enter meeting code or link"
             className="py-6 text-center rounded-full border-2 border-gray-200 focus:border-purple-500"
           />
-
           <div className="flex justify-center">
             <Button
               className="bg-purple-300 hover:bg-purple-400 text-purple-800 px-8 py-3 rounded-full"
