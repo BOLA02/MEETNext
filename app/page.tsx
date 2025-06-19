@@ -118,10 +118,10 @@ const handleCopyLink = () => {
 
           <Button
             onClick={handleStartInstantMeeting}
-            className="w-full bg-black hover:bg-gray-800 text-white py-6 text-lg rounded-full flex items-center justify-center gap-2"
+            className="w-full bg-black hover:bg-gray-900 text-white py-6 text-lg font-semibold rounded-full flex items-center justify-center gap-3 shadow-md transition"
             size="lg"
           >
-            <Video className="h-5 w-5" />
+            <Video className="h-6 w-6 mr-2" />
             Start an instant meeting
           </Button>
         </div>

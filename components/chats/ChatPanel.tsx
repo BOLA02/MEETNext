@@ -259,7 +259,7 @@ export default function ChatPanel({ chat }: { chat: Chat | null }) {
               <h2 className="font-semibold text-gray-900 text-lg">{currentChat.name}</h2>
             </div>
           </div>
-        </div>
+        </div> 
       )}
       {/* Messages Area */}
       {tab === 'general' && (
