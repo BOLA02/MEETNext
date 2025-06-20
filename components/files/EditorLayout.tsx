@@ -33,7 +33,7 @@ export default function EditorLayout() {
     <div className={`px-6 py-4 min-h-screen transition-colors ${bgColor}`}>
       <FileTopbar setShowCanvas={setShowCanvas} />
 
-      {showCanvas && <DrawingCanvas />}
+      {showCanvas && <DrawingCanvas onClose={() => setShowCanvas(false)} />}
 
       {imageSrc && (
         <img 
@@ -119,6 +119,8 @@ export default function EditorLayout() {
           </div>
         </div>
       )}
+
+      {showCanvas && <DrawingCanvas onClose={() => setShowCanvas(false)} />}
     </div>
   )
 }

@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, ChangeEvent, SetStateAction, Dispatch } from 'react'
 import { useRouter } from 'next/navigation'
 import FileTopbar from './FileTopbar'
 import MeetingNotesPanel from './MeetingNotesPanel'
+import DrawingCanvas from './DrawingCanvas'
+import { useEditorStore } from '@/lib/store/editorStore'
 import {
   FilePlus,
   Table,
@@ -18,17 +20,27 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
+interface File {
+  name: string
+  lastModified: string
+  author: string
+  url?: string
+  type?: string
+}
+
 export default function FileSection() {
   const [activeTab, setActiveTab] = useState('My Files')
   const router = useRouter()
-  const [files, setFiles] = useState([
+  const [files, setFiles] = useState<File[]>([
     { name: 'Meet Q2 Report.docx', lastModified: '10 hours ago', author: 'Kamaldeen' },
   ])
   const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showCanvas, setShowCanvas] = useState(false)
+  const { bgColor } = useEditorStore()
 
-  const handleFileUpload = async (e) => {
-    const selectedFile = e.target.files[0]
+  const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0]
     if (!selectedFile) return
 
     setUploading(true)
@@ -56,7 +68,7 @@ export default function FileSection() {
       } else {
         throw new Error(data.error || 'Upload failed')
       }
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error.message)
     } finally {
       setUploading(false)
@@ -67,7 +79,7 @@ export default function FileSection() {
     }
   }
 
-  const handleDelete = (fileName) => {
+  const handleDelete = (fileName: string) => {
     setFiles(files.filter(f => f.name !== fileName));
     toast.success(`Deleted ${fileName}`);
   }
@@ -174,9 +186,10 @@ export default function FileSection() {
   }
 
   return (
-    <div className="space-y-6">
-      <FileTopbar activeTab={activeTab} setActiveTab={setActiveTab} />
+    <div className={`space-y-6 p-6 min-h-screen transition-colors ${bgColor}`}>
+      <FileTopbar activeTab={activeTab} setActiveTab={setActiveTab} setShowCanvas={setShowCanvas} />
       {renderTabContent()}
+      {showCanvas && <DrawingCanvas onClose={() => setShowCanvas(false)} />}
     </div>
   )
 }

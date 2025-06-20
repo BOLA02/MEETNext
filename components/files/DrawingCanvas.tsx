@@ -1,335 +1,310 @@
-import React, { useRef, useState } from 'react';
-import { Undo2, Redo2, Trash2, Download, Pen, Eraser, Palette, StickyNote, Square, Circle, Type, X } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { Undo2, Redo2, Trash2, Download, Pen, Eraser, Palette, StickyNote, Square, Circle, Type, X, Minus } from 'lucide-react';
 
-const COLORS = ['#000000', '#7C3AED', '#2563EB', '#059669', '#F59E42', '#EF4444', '#FFFFFF'];
+const COLORS = ['#000000', '#EF4444', '#F59E42', '#059669', '#2563EB', '#7C3AED', '#FFFFFF'];
+const SIZES = [2, 4, 8, 12, 16];
 
-const TOOL_PEN = 'pen';
-const TOOL_ERASER = 'eraser';
-const TOOL_NOTE = 'note';
-const TOOL_RECT = 'rect';
-const TOOL_ELLIPSE = 'ellipse';
-const TOOL_LINE = 'line';
-const TOOL_TEXT = 'text';
+const TOOLS = {
+  PEN: 'pen',
+  ERASER: 'eraser',
+  NOTE: 'note',
+  RECT: 'rect',
+  ELLIPSE: 'ellipse',
+  LINE: 'line',
+  TEXT: 'text',
+};
 
 const CANVAS_WIDTH = 900;
 const CANVAS_HEIGHT = 500;
 
 function getRelativeCoords(e, canvas) {
   const rect = canvas.getBoundingClientRect();
+  // Use clientX/Y for pointer events and adjust for canvas position
   return {
-    x: e.nativeEvent.offsetX,
-    y: e.nativeEvent.offsetY,
+    x: e.clientX - rect.left,
+    y: e.clientY - rect.top,
   };
 }
 
-const DrawingCanvas = () => {
+export default function DrawingCanvas({ onClose }) {
   const canvasRef = useRef(null);
-  const [tool, setTool] = useState(TOOL_PEN);
-  const [color, setColor] = useState(COLORS[1]);
-  const [size, setSize] = useState(4);
-  const [drawing, setDrawing] = useState(false);
+  const [tool, setTool] = useState(TOOLS.PEN);
+  const [color, setColor] = useState(COLORS[0]);
+  const [size, setSize] = useState(SIZES[1]);
+  const [isDrawing, setIsDrawing] = useState(false);
   const [history, setHistory] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
-  const [notes, setNotes] = useState([]); // {id, x, y, text}
-  const [dragNoteId, setDragNoteId] = useState(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [shapeStart, setShapeStart] = useState(null); // {x, y}
-  const [shapes, setShapes] = useState([]); // {type, x1, y1, x2, y2, color, size}
-  const [textInput, setTextInput] = useState('');
-  const [textPos, setTextPos] = useState(null); // {x, y}
-  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [elements, setElements] = useState([]); // Unified state for notes, shapes, text
+  const [editingText, setEditingText] = useState(null); // { x, y, text }
 
-  // --- Drawing logic ---
+  const drawElements = (ctx) => {
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    elements.forEach(el => {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      if (el.type === 'path') {
+        ctx.strokeStyle = el.color;
+        ctx.lineWidth = el.size;
+        ctx.beginPath();
+        el.points.forEach((p, i) => {
+          if (i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+      } else if (el.type === TOOLS.RECT) {
+        ctx.strokeStyle = el.color;
+        ctx.lineWidth = el.size;
+        ctx.strokeRect(el.x, el.y, el.width, el.height);
+      } else if (el.type === TOOLS.ELLIPSE) {
+        ctx.strokeStyle = el.color;
+        ctx.lineWidth = el.size;
+        ctx.beginPath();
+        ctx.ellipse(el.x + el.width / 2, el.y + el.height / 2, Math.abs(el.width / 2), Math.abs(el.height / 2), 0, 0, 2 * Math.PI);
+        ctx.stroke();
+      } else if (el.type === TOOLS.TEXT) {
+        ctx.fillStyle = el.color;
+        ctx.font = `${el.size * 5}px sans-serif`;
+        ctx.textBaseline = 'top';
+        ctx.fillText(el.text, el.x, el.y);
+      }
+    });
+  };
+  
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    drawElements(ctx);
+  }, [elements]);
+
+
   const handlePointerDown = (e) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const { x, y } = getRelativeCoords(e, canvas);
-    if (tool === TOOL_NOTE) {
-      // Add sticky note
-      const id = Date.now() + Math.random();
-      setNotes((prev) => [...prev, { id, x, y, text: 'Double-click to edit' }]);
-      setTool(TOOL_PEN); // Switch back to pen after placing note
+    
+    // If we are editing text and click outside, commit it first.
+    if (editingText) {
+      handleTextCommit();
       return;
     }
-    if (tool === TOOL_TEXT) {
-      setTextPos({ x, y });
-      setTextInput('');
+
+    if (tool === TOOLS.TEXT) {
+      // Start editing text at the clicked position
+      setEditingText({ x, y, text: '' });
+      setIsDrawing(false); // Don't create other elements while typing
       return;
     }
-    if ([TOOL_RECT, TOOL_ELLIPSE, TOOL_LINE].includes(tool)) {
-      setShapeStart({ x, y });
-      return;
-    }
-    // Pen/Eraser
-    const ctx = canvas.getContext('2d');
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    setDrawing(true);
+
+    setIsDrawing(true);
     setRedoStack([]);
-  };
 
+    const newElement = {
+      id: Date.now(),
+      type: tool,
+      x, y,
+      color,
+      size,
+    };
+
+    if (tool === TOOLS.PEN || tool === TOOLS.ERASER) {
+      newElement.points = [{ x, y }];
+      newElement.type = 'path';
+      if(tool === TOOLS.ERASER) newElement.color = '#FFFFFF';
+    } else if ([TOOLS.RECT, TOOLS.ELLIPSE].includes(tool)) {
+      newElement.width = 0;
+      newElement.height = 0;
+    }
+
+    setElements(prev => [...prev, newElement]);
+  };
+  
   const handlePointerMove = (e) => {
-    if (!drawing) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const { x, y } = getRelativeCoords(e, canvas);
-    if (tool === TOOL_PEN || tool === TOOL_ERASER) {
-      const ctx = canvas.getContext('2d');
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.lineWidth = size;
-      ctx.strokeStyle = tool === TOOL_PEN ? color : '#fff';
-      ctx.globalCompositeOperation = tool === TOOL_PEN ? 'source-over' : 'destination-out';
-      ctx.lineTo(x, y);
-      ctx.stroke();
-    }
+    if (!isDrawing) return;
+    const { x, y } = getRelativeCoords(e, canvasRef.current);
+    
+    setElements(prev => prev.map(el => {
+      if (el.id === elements[elements.length - 1].id) {
+        if (el.type === 'path') {
+          el.points.push({ x, y });
+        } else if ([TOOLS.RECT, TOOLS.ELLIPSE].includes(el.type)) {
+          el.width = x - el.x;
+          el.height = y - el.y;
+        }
+      }
+      return el;
+    }));
+  };
+  
+  const handlePointerUp = () => {
+    setIsDrawing(false);
   };
 
-  const handlePointerUp = (e) => {
-    if (!drawing) return setDrawing(false);
-    setDrawing(false);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    setHistory((prev) => [...prev, canvas.toDataURL()]);
-    // For shapes
-    if (shapeStart && [TOOL_RECT, TOOL_ELLIPSE, TOOL_LINE].includes(tool)) {
-      const { x, y } = getRelativeCoords(e, canvas);
-      setShapes((prev) => [
-        ...prev,
-        {
-          type: tool,
-          x1: shapeStart.x,
-          y1: shapeStart.y,
-          x2: x,
-          y2: y,
-          color,
-          size,
-        },
-      ]);
-      setShapeStart(null);
-      setTool(TOOL_PEN); // Switch back to pen
-    }
+  const handleTextChange = (e) => {
+    if (!editingText) return;
+    setEditingText({ ...editingText, text: e.target.value });
   };
 
-  // --- Sticky Notes ---
-  const handleNotePointerDown = (e, id) => {
-    e.stopPropagation();
-    setDragNoteId(id);
-    const note = notes.find((n) => n.id === id);
-    setDragOffset({ x: e.clientX - note.x, y: e.clientY - note.y });
-  };
-  const handleNotePointerMove = (e) => {
-    if (!dragNoteId) return;
-    setNotes((prev) => prev.map((n) => n.id === dragNoteId ? { ...n, x: e.clientX - dragOffset.x, y: e.clientY - dragOffset.y } : n));
-  };
-  const handleNotePointerUp = () => setDragNoteId(null);
-  const handleNoteDoubleClick = (id) => setEditingNoteId(id);
-  const handleNoteChange = (e, id) => setNotes((prev) => prev.map((n) => n.id === id ? { ...n, text: e.target.value } : n));
-  const handleNoteDelete = (id) => setNotes((prev) => prev.filter((n) => n.id !== id));
-
-  // --- Text Tool ---
-  const handleTextInputBlur = () => {
-    if (textInput && textPos) {
-      setShapes((prev) => [
-        ...prev,
-        { type: TOOL_TEXT, x: textPos.x, y: textPos.y, text: textInput, color, size },
-      ]);
-    }
-    setTextInput('');
-    setTextPos(null);
-  };
-
-  // --- Undo/Redo/Clear/Export ---
-  const handleUndo = () => {
-    if (history.length === 0) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    setRedoStack((prev) => [history[history.length - 1], ...prev]);
-    const newHistory = history.slice(0, -1);
-    setHistory(newHistory);
-    const ctx = canvas.getContext('2d');
-    const img = new window.Image();
-    if (newHistory.length === 0) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const handleTextCommit = () => {
+    if (!editingText || !editingText.text.trim()) {
+      setEditingText(null);
       return;
     }
-    img.src = newHistory[newHistory.length - 1];
-    img.onload = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
+    const newTextElement = {
+      id: Date.now(),
+      type: TOOLS.TEXT,
+      x: editingText.x,
+      y: editingText.y,
+      text: editingText.text,
+      color,
+      size,
     };
+    setElements(prev => [...prev, newTextElement]);
+    setEditingText(null);
   };
+
+  const handleUndo = () => {
+    if (elements.length === 0) return;
+    const lastElement = elements[elements.length - 1];
+    setRedoStack(prev => [lastElement, ...prev]);
+    setElements(prev => prev.slice(0, -1));
+  };
+  
   const handleRedo = () => {
     if (redoStack.length === 0) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const next = redoStack[0];
-    setHistory((prev) => [...prev, next]);
-    setRedoStack((prev) => prev.slice(1));
-    const ctx = canvas.getContext('2d');
-    const img = new window.Image();
-    img.src = next;
-    img.onload = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-    };
+    const nextElement = redoStack[0];
+    setElements(prev => [...prev, nextElement]);
+    setRedoStack(prev => prev.slice(1));
   };
+
   const handleClear = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setElements([]);
     setHistory([]);
     setRedoStack([]);
-    setNotes([]);
-    setShapes([]);
   };
+
   const handleExport = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    // Redraw with white background for export
+    const ctx = canvas.getContext('2d');
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     const url = canvas.toDataURL('image/png');
     const link = document.createElement('a');
     link.href = url;
     link.download = 'whiteboard.png';
     link.click();
+
+    // Redraw without background
+    drawElements(ctx);
   };
-
-  // --- Draw shapes and text on canvas after render ---
-  React.useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // Draw from history (last image)
-    if (history.length > 0) {
-      const img = new window.Image();
-      img.src = history[history.length - 1];
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0);
-        drawShapesAndText(ctx);
-      };
-    } else {
-      drawShapesAndText(ctx);
-    }
-    // eslint-disable-next-line
-  }, [history, shapes]);
-
-  function drawShapesAndText(ctx) {
-    shapes.forEach((shape) => {
-      ctx.save();
-      ctx.strokeStyle = shape.color;
-      ctx.fillStyle = shape.color;
-      ctx.lineWidth = shape.size;
-      if (shape.type === TOOL_RECT) {
-        ctx.strokeRect(shape.x1, shape.y1, shape.x2 - shape.x1, shape.y2 - shape.y1);
-      } else if (shape.type === TOOL_ELLIPSE) {
-        ctx.beginPath();
-        ctx.ellipse(
-          (shape.x1 + shape.x2) / 2,
-          (shape.y1 + shape.y2) / 2,
-          Math.abs(shape.x2 - shape.x1) / 2,
-          Math.abs(shape.y2 - shape.y1) / 2,
-          0,
-          0,
-          2 * Math.PI
-        );
-        ctx.stroke();
-      } else if (shape.type === TOOL_LINE) {
-        ctx.beginPath();
-        ctx.moveTo(shape.x1, shape.y1);
-        ctx.lineTo(shape.x2, shape.y2);
-        ctx.stroke();
-      } else if (shape.type === TOOL_TEXT) {
-        ctx.font = `${shape.size * 4}px sans-serif`;
-        ctx.fillStyle = shape.color;
-        ctx.fillText(shape.text, shape.x, shape.y);
-      }
-      ctx.restore();
-    });
-  }
-
-  // --- Render ---
+  
   return (
-    <div className="w-full max-w-4xl mx-auto bg-white rounded-xl shadow-lg border p-4 select-none">
-      {/* Toolbar */}
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <button className={`p-2 rounded ${tool === TOOL_PEN ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`} onClick={() => setTool(TOOL_PEN)} title="Pen"><Pen /></button>
-        <button className={`p-2 rounded ${tool === TOOL_ERASER ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`} onClick={() => setTool(TOOL_ERASER)} title="Eraser"><Eraser /></button>
-        <button className={`p-2 rounded ${tool === TOOL_NOTE ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`} onClick={() => setTool(TOOL_NOTE)} title="Sticky Note"><StickyNote /></button>
-        <button className={`p-2 rounded ${tool === TOOL_RECT ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`} onClick={() => setTool(TOOL_RECT)} title="Rectangle"><Square /></button>
-        <button className={`p-2 rounded ${tool === TOOL_ELLIPSE ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`} onClick={() => setTool(TOOL_ELLIPSE)} title="Ellipse"><Circle /></button>
-        <button className={`p-2 rounded ${tool === TOOL_LINE ? 'bg-gray-200 text-gray-700' : 'bg-gray-100 text-gray-500'}`} onClick={() => setTool(TOOL_LINE)} title="Line"><svg width="20" height="20"><line x1="3" y1="17" x2="17" y2="3" stroke="currentColor" strokeWidth="2" /></svg></button>
-        <button className={`p-2 rounded ${tool === TOOL_TEXT ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-500'}`} onClick={() => setTool(TOOL_TEXT)} title="Text"><Type /></button>
-        <div className="flex items-center gap-1">
-          {COLORS.map((c) => (
-            <button key={c} className={`w-6 h-6 rounded-full border-2 ${color === c ? 'border-purple-600' : 'border-gray-200'}`} style={{ background: c }} onClick={() => { setColor(c); setTool(TOOL_PEN); }} title={c} />
-          ))}
-        </div>
-        <input type="range" min={2} max={16} value={size} onChange={e => setSize(Number(e.target.value))} className="mx-2 w-24" title="Brush size" />
-        <button className="p-2 rounded bg-gray-100 text-gray-500" onClick={handleUndo} title="Undo"><Undo2 /></button>
-        <button className="p-2 rounded bg-gray-100 text-gray-500" onClick={handleRedo} title="Redo"><Redo2 /></button>
-        <button className="p-2 rounded bg-gray-100 text-gray-500" onClick={handleClear} title="Clear"><Trash2 /></button>
-        <button className="p-2 rounded bg-gray-100 text-gray-500" onClick={handleExport} title="Export"><Download /></button>
-      </div>
-      {/* Canvas + Notes */}
-      <div className="border rounded-xl overflow-hidden bg-white shadow relative" style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}
-        onPointerMove={handleNotePointerMove}
-        onPointerUp={handleNotePointerUp}
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+    >
+      <div 
+        className="relative bg-white rounded-lg shadow-2xl overflow-hidden"
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
       >
+        {/* Close Button */}
+        <button 
+            onClick={onClose} 
+            className="absolute top-2 right-2 z-30 p-2 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-black"
+            title="Close Canvas"
+        >
+            <X className="w-5 h-5" />
+        </button>
+
+        {/* Top Options Toolbar */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 bg-white/80 backdrop-blur-sm rounded-b-xl shadow-md px-4 py-2 flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Color:</span>
+            {COLORS.map(c => (
+              <button key={c} onClick={() => setColor(c)} className={`w-6 h-6 rounded-full border-2 ${color === c ? 'border-purple-600 ring-2 ring-purple-300' : 'border-gray-300'}`} style={{ backgroundColor: c }} />
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Size:</span>
+            <input 
+              type="range" 
+              min={SIZES[0]} 
+              max={SIZES[SIZES.length-1]} 
+              step="1" 
+              value={size} 
+              onChange={(e) => setSize(parseInt(e.target.value))}
+              className="w-24"
+            />
+          </div>
+          <div className="border-l pl-4 flex items-center gap-2">
+            <button onClick={handleUndo} className="p-2 rounded-full hover:bg-gray-200" title="Undo"><Undo2 className="w-5 h-5" /></button>
+            <button onClick={handleRedo} className="p-2 rounded-full hover:bg-gray-200" title="Redo"><Redo2 className="w-5 h-5" /></button>
+            <button onClick={handleClear} className="p-2 rounded-full hover:bg-gray-200" title="Clear Canvas"><Trash2 className="w-5 h-5" /></button>
+            <button onClick={handleExport} className="p-2 rounded-full hover:bg-gray-200" title="Download as PNG"><Download className="w-5 h-5" /></button>
+          </div>
+        </div>
+
+        {/* Left Tools Toolbar */}
+        <div className="absolute top-1/2 -translate-y-1/2 left-4 z-20 bg-white/80 backdrop-blur-sm rounded-xl shadow-md p-2 flex flex-col items-center gap-2">
+          {Object.values(TOOLS).map(t => {
+            const icons = { pen: Pen, eraser: Eraser, note: StickyNote, rect: Square, ellipse: Circle, line: Minus, text: Type };
+            const Icon = icons[t];
+            if (!Icon) return null;
+            return (
+              <button key={t} onClick={() => setTool(t)} className={`p-3 rounded-lg ${tool === t ? 'bg-purple-600 text-white' : 'hover:bg-gray-200'}`} title={t.charAt(0).toUpperCase() + t.slice(1)}>
+                <Icon className="w-6 h-6" />
+              </button>
+            )
+          })}
+        </div>
+        
         <canvas
           ref={canvasRef}
           width={CANVAS_WIDTH}
           height={CANVAS_HEIGHT}
-          className="block w-full h-[500px] cursor-crosshair touch-none select-none"
-          style={{ background: '#fff' }}
+          className="cursor-crosshair"
           onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
         />
-        {/* Sticky Notes */}
-        {notes.map((note) => (
-          <div
-            key={note.id}
-            className="absolute"
-            style={{ left: note.x, top: note.y, zIndex: 10, minWidth: 120, minHeight: 60 }}
-            onPointerDown={e => handleNotePointerDown(e, note.id)}
-            onDoubleClick={() => handleNoteDoubleClick(note.id)}
-          >
-            {editingNoteId === note.id ? (
-              <div className="bg-yellow-200 rounded-lg shadow p-2 flex items-start gap-2">
-                <textarea
-                  className="bg-transparent w-28 h-16 resize-none outline-none text-sm"
-                  value={note.text}
-                  onChange={e => handleNoteChange(e, note.id)}
-                  onBlur={() => setEditingNoteId(null)}
-                  autoFocus
-                />
-                <button className="text-gray-500 hover:text-red-500" onClick={() => handleNoteDelete(note.id)}><X size={16} /></button>
-              </div>
-            ) : (
-              <div className="bg-yellow-200 rounded-lg shadow p-2 text-sm cursor-move min-w-[100px] min-h-[40px]">
-                {note.text}
-                <button className="absolute top-1 right-1 text-gray-400 hover:text-red-500" onClick={() => handleNoteDelete(note.id)}><X size={14} /></button>
-              </div>
-            )}
-          </div>
-        ))}
-        {/* Text input overlay */}
-        {tool === TOOL_TEXT && textPos && (
-          <input
-            className="absolute z-20 border rounded px-2 py-1 text-sm"
-            style={{ left: textPos.x, top: textPos.y, minWidth: 80 }}
-            value={textInput}
-            onChange={e => setTextInput(e.target.value)}
-            onBlur={handleTextInputBlur}
+
+        {editingText && (
+          <textarea
+            value={editingText.text}
+            onChange={handleTextChange}
+            onBlur={handleTextCommit}
             autoFocus
-            placeholder="Type..."
+            style={{
+              position: 'absolute',
+              left: editingText.x - 2,
+              top: editingText.y - 2,
+              border: '1px dashed #7C3AED',
+              outline: 'none',
+              background: 'rgba(255, 255, 255, 0.9)',
+              fontFamily: 'sans-serif',
+              fontSize: `${size * 5}px`,
+              lineHeight: 1.1,
+              color: color,
+              padding: '2px',
+              zIndex: 100,
+              minWidth: '100px',
+              minHeight: `${size * 5 + 4}px`,
+              resize: 'none',
+              overflow: 'hidden',
+              whiteSpace: 'pre',
+            }}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleTextCommit();
+                }
+            }}
           />
         )}
       </div>
     </div>
   );
-};
-
-export default DrawingCanvas;
+}

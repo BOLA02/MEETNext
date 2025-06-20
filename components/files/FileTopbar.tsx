@@ -4,22 +4,25 @@ import { ArrowLeft, Undo2, Redo2, Share2, MoreVertical, Pin, Palette, Plus, Imag
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { useRouter } from 'next/navigation'
-import { useState, useRef, ChangeEvent } from 'react'
+import { useState, useRef, ChangeEvent, Dispatch, SetStateAction } from 'react'
 import { useEditorStore } from '@/lib/store/editorStore'
 import ChecklistModal from '@/components/files/ChecklistModal'
 import ShareModal from '@/components/files/ShareModal'
+import { toast } from 'sonner'
 
 
 interface FileTopbarProps {
   onUndo?: () => void
   onRedo?: () => void
-  setShowCanvas?: React.Dispatch<React.SetStateAction<boolean>>
+  setShowCanvas: Dispatch<SetStateAction<boolean>>
+  activeTab?: string
+  setActiveTab?: Dispatch<SetStateAction<string>>
 }
 
-export default function FileTopbar({ onUndo, onRedo, setShowCanvas }: FileTopbarProps) {
+export default function FileTopbar({ onUndo, onRedo, setShowCanvas, activeTab, setActiveTab }: FileTopbarProps) {
 
   const router = useRouter();
-  const { setImageSrc, addChecklistItem, setAudioURL, setBgColor } = useEditorStore();
+  const { setImageSrc, addChecklistItem, setAudioURL, setBgColor, insertDataTable, reset } = useEditorStore();
   const [shareOpen, setShareOpen] = useState(false);
 
   const [isRecording, setIsRecording] = useState(false);
@@ -36,24 +39,44 @@ export default function FileTopbar({ onUndo, onRedo, setShowCanvas }: FileTopbar
     }
   };
 
-  const handleStartRecording = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const recorder = new MediaRecorder(stream);
-    recorder.ondataavailable = e => e.data.size > 0 && audioChunks.current.push(e.data);
-    recorder.onstop = () => {
-      const blob = new Blob(audioChunks.current, { type: 'audio/mp3' });
-      const url = URL.createObjectURL(blob);
-      setAudioURL(url);
-      audioChunks.current = [];
-    };
-    recorder.start();
-    mediaRecorderRef.current = recorder;
-    setIsRecording(true);
-  };
+  const handleAudio = async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+      toast.info("Recording stopped.");
+      return;
+    }
 
-  const handleStopRecording = () => {
-    mediaRecorderRef.current?.stop();
-    setIsRecording(false);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setIsRecording(true);
+      toast.info("Recording started... Click mic again to stop.");
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      audioChunks.current = [];
+
+      recorder.ondataavailable = (event) => {
+        audioChunks.current.push(event.data);
+      };
+
+      recorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks.current, { type: 'audio/wav' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        setAudioURL(audioUrl);
+        stream.getTracks().forEach(track => track.stop()); // Release the microphone
+      };
+
+      recorder.start();
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        toast.error("Microphone access denied. Please allow permission in your browser settings.");
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        toast.error("No microphone found. Please connect a microphone and try again.");
+      } else {
+        toast.error("Could not start recording. Please check your microphone.");
+      }
+    }
   };
 
   const colors = ['bg-white', 'bg-gray-100', 'bg-yellow-200', 'bg-green-200', 'bg-blue-200', 'bg-red-200'];
@@ -115,7 +138,7 @@ export default function FileTopbar({ onUndo, onRedo, setShowCanvas }: FileTopbar
           </ChecklistModal>
 
           <DropdownMenuItem 
-              onClick={isRecording ? handleStopRecording : handleStartRecording}
+              onClick={handleAudio}
               className={`${isRecording ? 'bg-purple-100 text-purple-700 font-semibold' : ''}`}
             >
               <Mic className={`mr-2 ${isRecording ? 'animate-pulse text-purple-700' : ''}`} size={16} /> 
@@ -123,7 +146,7 @@ export default function FileTopbar({ onUndo, onRedo, setShowCanvas }: FileTopbar
           </DropdownMenuItem>
 
 
-          <DropdownMenuItem onClick={() => setShowCanvas?.(prev => !prev)}>
+          <DropdownMenuItem onClick={() => setShowCanvas(true)}>
             <Brush className="mr-2" size={16} /> Open Canvas
           </DropdownMenuItem>
 
