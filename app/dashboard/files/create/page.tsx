@@ -1,9 +1,11 @@
-'use client';
+import React from 'react';
 
-import EditorLayout from '@/components/files/EditorLayout';
-
-export default function CreateFilePage() {
+const CreatePage = () => {
   return (
-    <EditorLayout />
+    <div>
+      <h1>Create Page</h1>
+    </div>
   );
-}
+};
+
+export default CreatePage; 
