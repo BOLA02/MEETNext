@@ -6,9 +6,19 @@ import { useEditorStore } from '@/lib/store/editorStore'
 import AudioPlayer from '@/components/files/AudioPlayer'
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { Search } from 'lucide-react'
 
 export default function EditorLayout() {
-  const { bgColor, imageSrc, audioURL, checklist, dataTable, insertDataTable } = useEditorStore();
+  const { 
+    bgColor, 
+    imageSrc, 
+    audioURL, 
+    checklist, 
+    dataTable, 
+    insertDataTable,
+    addRow,
+    updateCell,
+  } = useEditorStore();
   const [showCanvas, setShowCanvas] = useState(false);
   const searchParams = useSearchParams();
 
@@ -53,57 +63,62 @@ export default function EditorLayout() {
       )}
 
       {dataTable && (
-  <div className="my-4 bg-white rounded-lg shadow border p-4">
-    {/* Top Toolbar */}
-    <div className="flex justify-between items-center mb-4">
-      <div className="flex items-center gap-2">
-        <div className="border rounded px-2 py-1 text-sm flex items-center gap-1">
-          <span className="text-gray-500">🔎</span>
-          <input
-            type="text"
-            placeholder="Search..."
-            className="outline-none text-sm bg-transparent placeholder-gray-400"
-          />
+        <div className="my-4 bg-white rounded-lg shadow border p-4">
+          {/* Top Toolbar */}
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-2">
+              <div className="border rounded px-2 py-1 text-sm flex items-center gap-2">
+                <Search className="w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  className="outline-none text-sm bg-transparent placeholder-gray-400"
+                />
+              </div>
+            </div>
+            <button onClick={addRow} className="bg-purple-600 text-white px-3 py-1 rounded text-sm font-semibold hover:bg-purple-700">
+              + Add
+            </button>
+          </div>
+
+          {/* Table Header */}
+          <div className="grid grid-cols-[50px_1fr_1fr] bg-gray-50 px-4 py-2 border-b font-semibold text-sm text-gray-600 rounded-t">
+            <div>#</div>
+            <div>Name</div>
+            <div>Tags</div>
+          </div>
+
+          {/* Table Rows */}
+          <div className="divide-y">
+            {dataTable.map((row, rowIndex) => (
+              <div key={row.id} className="grid grid-cols-[50px_1fr_1fr] px-4 py-1 items-center hover:bg-gray-50">
+                <div className="text-gray-500">{rowIndex + 1}</div>
+                <div>
+                  <input
+                    className="w-full bg-transparent p-1 text-sm focus:outline-none focus:ring-1 focus:ring-purple-400 rounded"
+                    value={row.name}
+                    onChange={(e) => updateCell(rowIndex, 'name', e.target.value)}
+                  />
+                </div>
+                <div>
+                  <input
+                    className="w-full bg-transparent p-1 text-sm focus:outline-none focus:ring-1 focus:ring-purple-400 rounded"
+                    value={row.tags}
+                    onChange={(e) => updateCell(rowIndex, 'tags', e.target.value)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Add Row Button */}
+          <div className="flex justify-start mt-3">
+            <button onClick={addRow} className="border rounded px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 flex items-center gap-2 font-medium">
+              <span className="text-lg">+</span> Add Row
+            </button>
+          </div>
         </div>
-      </div>
-      <button className="bg-purple-600 text-white px-3 py-1 rounded text-sm">+</button>
-    </div>
-
-    {/* Table Header */}
-    <div className="flex bg-gray-100 px-4 py-2 border-b font-semibold text-sm text-gray-600 rounded-t">
-      <div className="w-1/6">#</div>
-      <div className="w-1/3">Name</div>
-      <div className="w-1/3">Tags</div>
-    </div>
-
-    {/* Table Rows */}
-    {dataTable.map((row, index) => (
-      <div key={row.id} className="flex px-4 py-2 border-b text-sm items-center">
-        <div className="w-1/6">{index + 1}</div>
-        <div className="w-1/3">
-          <input
-            className="w-full border rounded px-2 py-1 text-sm"
-            defaultValue={row.name}
-          />
-        </div>
-        <div className="w-1/3">
-          <input
-            className="w-full border rounded px-2 py-1 text-sm"
-            defaultValue={row.tags}
-          />
-        </div>
-      </div>
-    ))}
-
-    {/* Add Row Button */}
-    <div className="flex justify-center mt-3">
-      <button className="border rounded px-4 py-2 text-sm text-purple-600 hover:bg-purple-50">
-        + Add Row
-      </button>
-    </div>
-  </div>
-)}
-
+      )}
     </div>
   )
 }

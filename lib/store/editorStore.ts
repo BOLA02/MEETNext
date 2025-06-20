@@ -18,6 +18,8 @@ interface EditorState {
   addChecklistItem: (item: string) => void
   setAudioURL: (url: string) => void
   insertDataTable: () => void
+  addRow: () => void
+  updateCell: (rowIndex: number, columnId: string, value: string) => void
   reset: () => void
 }
 
@@ -34,12 +36,21 @@ export const useEditorStore = create<EditorState>((set) => ({
   setAudioURL: (url) => set({ audioURL: url }),
   insertDataTable: () => set({
     dataTable: [
-      { id: 1, name: '', tags: '' },
-      { id: 2, name: '', tags: '' },
-      { id: 3, name: '', tags: '' },
-      { id: 4, name: '', tags: '' },
+      { id: 1, name: 'Project Alpha', tags: 'Urgent' },
+      { id: 2, name: 'Q2 Financials', tags: 'Finance' },
+      { id: 3, name: 'User Research', tags: 'UX' },
     ]
   }),
+  addRow: () => set((state) => ({
+    dataTable: state.dataTable 
+      ? [...state.dataTable, { id: Date.now(), name: '', tags: '' }] 
+      : []
+  })),
+  updateCell: (rowIndex, columnId, value) => set(state => ({
+    dataTable: state.dataTable ? state.dataTable.map((row, i) => 
+      i === rowIndex ? { ...row, [columnId]: value } : row
+    ) : []
+  })),
   reset: () => set({
     bgColor: 'bg-white',
     imageSrc: null,
