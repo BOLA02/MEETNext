@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Video, Link2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,12 @@ import { toast } from "sonner"
 export default function HomePage() {
   const [isSignedIn, setIsSignedIn] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    if (isSignedIn) {
+      router.push("/dashboard")
+    }
+  }, [isSignedIn, router])
 
   const currentDate = new Date().toLocaleDateString("en-US", {
     weekday: "short",
@@ -56,12 +62,6 @@ const handleCopyLink = () => {
   // Immediately redirect after copying
   router.push(`/meetings/${meetingId}`)
 }
-
-
-  if (isSignedIn) {
-    router.push("/dashboard")
-    return null
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -88,7 +88,7 @@ export default function MeetingPage() {
     if (!user || !id) return
     // Connect only once
     if (!socketRef.current) {
-      socketRef.current = io('ws://localhost:4000')
+      socketRef.current = io('ws://localhost:5000')
     }
     const socket = socketRef.current
     socket.emit('join-room', { roomId: id, user: { id: user.id, name: user.name, avatar: user.avatar, mic: micOn, video: videoOn } })

@@ -8,7 +8,7 @@ import ChatMessage from "./ChatMessage";
 import ChatInput from "./ChatInput";
 import { io, Socket } from "socket.io-client";
 
-const SOCKET_URL = "http://localhost:4000";
+const SOCKET_URL = "http://localhost:6000";
 
 function getDateLabel(dateStr: string) {
   const today = new Date();
