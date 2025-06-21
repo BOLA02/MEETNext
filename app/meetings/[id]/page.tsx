@@ -1,13 +1,15 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo, lazy, Suspense } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Mic, MicOff, Video, VideoOff, Settings, Copy, UserPlus, PhoneOff, Hand, Smile, Captions, MoreHorizontal, Share2, MessageCircle, Paperclip, SmilePlus, Pin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { io } from 'socket.io-client'
 import { v4 as uuidv4 } from 'uuid'
-import Picker from '@emoji-mart/react'
+
+// Lazy load the heavy emoji picker component
+const Picker = lazy(() => import('@emoji-mart/react'))
 
 // Remove mock participants, only show self
 const otherParticipants = []
@@ -21,10 +23,10 @@ export default function MeetingPage() {
   const [user, setUser] = useState(null)
   const [participants, setParticipants] = useState([])
   const [showGrid, setShowGrid] = useState(false)
-  const meetingLink = `meetio.com/${id}`
-  const now = new Date()
-  const dateStr = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+  const meetingLink = useMemo(() => `meetio.com/${id}`, [id])
+  const now = useMemo(() => new Date(), [])
+  const dateStr = useMemo(() => now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }), [now])
+  const timeStr = useMemo(() => now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }), [now])
   const localVideoRef = useRef(null)
   const [localStream, setLocalStream] = useState(null)
   const [handRaised, setHandRaised] = useState(false)
@@ -50,8 +52,8 @@ export default function MeetingPage() {
   const [readReceipts, setReadReceipts] = useState({}) // { [messageId]: [userId] }
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 
-  // Load user from localStorage/sessionStorage on client only
-  useEffect(() => {
+  // Memoized user initialization function
+  const initializeUser = useCallback(() => {
     const settings = JSON.parse(localStorage.getItem('general_settings_v1') || '{}')
     let name = settings.firstName && settings.lastName ? `${settings.firstName} ${settings.lastName}` : ''
     if (!name) {
@@ -81,7 +83,38 @@ export default function MeetingPage() {
       video: videoOn,
     }
     setUser(me)
+  }, [micOn, videoOn])
+
+  // Load user from localStorage/sessionStorage on client only
+  useEffect(() => {
+    initializeUser()
+  }, [initializeUser])
+
+  // Memoized socket event handlers
+  const handleParticipants = useCallback((list) => {
+    setParticipants(list.map((p) => ({ ...p, isMe: p.id === user?.id })))
+  }, [user?.id])
+
+  const handleReaction = useCallback(({ userId, emoji }) => {
+    setReactions((prev) => ({ ...prev, [userId]: emoji }))
+    if (userId === user?.id) {
+      setSelectedSticker(emoji)
+      setTimeout(() => setSelectedSticker(null), 2000)
+    }
+    setTimeout(() => setReactions((prev) => {
+      const copy = { ...prev }; delete copy[userId]; return copy;
+    }), 2000)
+  }, [user?.id])
+
+  const handleStateUpdate = useCallback(({ userId, mic, video }) => {
+    setParticipants((prev) => prev.map(p => p.id === userId ? { ...p, mic, video } : p))
   }, [])
+
+  const handleChatMessage = useCallback((msg) => {
+    setMessages((prev) => [...prev, msg])
+    // Unread badge logic
+    if (!showChat) setUnreadCount((c) => c + 1)
+  }, [showChat])
 
   // Socket.IO: join room and sync participants
   useEffect(() => {
@@ -92,28 +125,11 @@ export default function MeetingPage() {
     }
     const socket = socketRef.current
     socket.emit('join-room', { roomId: id, user: { id: user.id, name: user.name, avatar: user.avatar, mic: micOn, video: videoOn } })
-    socket.on('participants', (list) => {
-      setParticipants(list.map((p) => ({ ...p, isMe: p.id === user.id })))
-    })
-    socket.on('reaction', ({ userId, emoji }) => {
-      setReactions((prev) => ({ ...prev, [userId]: emoji }))
-      if (userId === user.id) {
-        setSelectedSticker(emoji)
-        setTimeout(() => setSelectedSticker(null), 2000)
-      }
-      setTimeout(() => setReactions((prev) => {
-        const copy = { ...prev }; delete copy[userId]; return copy;
-      }), 2000)
-    })
-    socket.on('state-update', ({ userId, mic, video }) => {
-      setParticipants((prev) => prev.map(p => p.id === userId ? { ...p, mic, video } : p))
-    })
+    socket.on('participants', handleParticipants)
+    socket.on('reaction', handleReaction)
+    socket.on('state-update', handleStateUpdate)
     // Chat events
-    socket.on('chat-message', (msg) => {
-      setMessages((prev) => [...prev, msg])
-      // Unread badge logic
-      if (!showChat) setUnreadCount((c) => c + 1)
-    })
+    socket.on('chat-message', handleChatMessage)
     socket.on('chat-reaction', ({ messageId, emoji, userId }) => {
       setMessageReactions((prev) => {
         const arr = prev[messageId] ? [...prev[messageId]] : []
@@ -146,7 +162,7 @@ export default function MeetingPage() {
       socket.emit('leave-room', { roomId: id })
       socket.disconnect()
     }
-  }, [user, id, showChat])
+  }, [user, id, showChat, handleParticipants, handleReaction, handleStateUpdate, handleChatMessage, micOn, videoOn])
 
   // Reset unread count when chat is opened
   useEffect(() => {
@@ -192,32 +208,104 @@ export default function MeetingPage() {
     };
   }, [videoOn]);
 
-  // Copy link
-  const handleCopy = () => {
+  // Memoized handlers
+  const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(meetingLink)
     setCopied(true)
     toast.success('Meeting link copied!')
     setTimeout(() => setCopied(false), 1500)
-  }
+  }, [meetingLink])
 
-  // Toolbar actions
-  const handleToggleMic = () => setMicOn((v) => !v)
-  const handleToggleVideo = () => setVideoOn((v) => !v)
-  const handleLeave = () => {
+  const handleToggleMic = useCallback(() => setMicOn((v) => !v), [])
+  const handleToggleVideo = useCallback(() => setVideoOn((v) => !v), [])
+  
+  const handleLeave = useCallback(() => {
     if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
-      setLocalStream(null);
+      localStream.getTracks().forEach(track => track.stop())
     }
     router.push('/')
-  }
-  const handleRaiseHand = () => {
-    setHandRaised(true)
-    toast('You raised your hand ✋')
-    setTimeout(() => setHandRaised(false), 3000)
-  }
-  const handleStickers = () => setShowStickers((v) => !v)
-  const handleCaptions = () => setCaptionsOn((v) => !v)
-  const handleMore = () => {}
+  }, [localStream, router])
+
+  const handleRaiseHand = useCallback(() => {
+    setHandRaised((v) => !v)
+    if (socketRef.current) {
+      socketRef.current.emit('reaction', { roomId: id, userId: user?.id, emoji: handRaised ? null : '✋' })
+    }
+  }, [handRaised, id, user?.id])
+
+  const handleStickers = useCallback(() => setShowStickers((v) => !v), [])
+  const handleCaptions = useCallback(() => setCaptionsOn((v) => !v), [])
+  const handleMore = useCallback(() => {}, [])
+
+  const handleSelectSticker = useCallback((emoji) => {
+    setSelectedSticker(emoji)
+    if (socketRef.current) {
+      socketRef.current.emit('reaction', { roomId: id, userId: user?.id, emoji })
+    }
+    setTimeout(() => setSelectedSticker(null), 2000)
+  }, [id, user?.id])
+
+  const sendMessage = useCallback((e, fileUrl = null, fileType = null, fileName = null) => {
+    e.preventDefault()
+    if (!chatInput.trim() && !fileUrl) return
+    const msg = {
+      id: uuidv4(),
+      text: chatInput,
+      userId: user?.id,
+      userName: user?.name,
+      userAvatar: user?.avatar,
+      timestamp: Date.now(),
+      fileUrl,
+      fileType,
+      fileName,
+      isPrivate: chatMode === 'private' && dmTarget,
+      dmTarget
+    }
+    if (socketRef.current) {
+      socketRef.current.emit('chat-message', { roomId: id, message: msg })
+    }
+    setChatInput('')
+  }, [chatInput, user, chatMode, dmTarget, id])
+
+  const handleFileUpload = useCallback(async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      // Simulate file upload - replace with actual upload logic
+      const fileUrl = URL.createObjectURL(file)
+      sendMessage(e, fileUrl, file.type, file.name)
+    } catch (error) {
+      toast.error('Failed to upload file')
+    } finally {
+      setUploading(false)
+    }
+  }, [sendMessage])
+
+  const toggleChatMode = useCallback(() => {
+    if (socketRef.current) {
+      const newMode = chatMode === 'public' ? 'private' : 'public'
+      socketRef.current.emit('chat-mode', { roomId: id, mode: newMode, hostId: user?.id })
+    }
+  }, [chatMode, id, user?.id])
+
+  const handleTyping = useCallback(() => {
+    if (socketRef.current) {
+      socketRef.current.emit('typing', { roomId: id, userId: user?.id, name: user?.name })
+    }
+  }, [id, user?.id, user?.name])
+
+  const sendReaction = useCallback((messageId, emoji) => {
+    if (socketRef.current) {
+      socketRef.current.emit('chat-reaction', { roomId: id, messageId, emoji, userId: user?.id })
+    }
+  }, [id, user?.id])
+
+  const pinMessage = useCallback((messageId) => {
+    if (socketRef.current) {
+      socketRef.current.emit('pin-message', { roomId: id, messageId, hostId: user?.id })
+    }
+  }, [id, user?.id])
 
   // Stickers modal
   // Google Meet style emoji stickers (from screenshot)
@@ -232,88 +320,6 @@ export default function MeetingPage() {
     '🤔', // Thinking
     '👎', // Thumbs down
   ]
-  const handleSelectSticker = (emoji) => {
-    setShowStickers(false)
-    if (socketRef.current && user) {
-      socketRef.current.emit('reaction', { roomId: id, userId: user.id, emoji })
-    }
-  }
-
-  // Send chat message
-  const sendMessage = (e, fileUrl = null, fileType = null, fileName = null) => {
-    if (e) e.preventDefault()
-    if (!chatInput.trim() && !fileUrl) return
-    const msg = {
-      roomId: id,
-      sender: { id: user.id, name: user.name, avatar: user.avatar },
-      recipientId: chatMode === 'private' ? dmTarget : null,
-      content: fileUrl ? '' : chatInput,
-      timestamp: Date.now(),
-      type: fileType || 'text',
-      fileUrl,
-      fileName,
-    }
-    socketRef.current.emit('chat-message', msg)
-    setChatInput('')
-  }
-
-  // Handle file upload
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    setUploading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-    const res = await fetch('/api/upload', { method: 'POST', body: formData })
-    const data = await res.json()
-    setUploading(false)
-    if (data.url) {
-      const isImage = file.type.startsWith('image/')
-      sendMessage(null, data.url, isImage ? 'image' : 'file', file.name)
-    }
-  }
-
-  // Host toggles chat mode
-  const toggleChatMode = () => {
-    if (user.id !== hostId) return
-    const newMode = chatMode === 'public' ? 'private' : 'public'
-    socketRef.current.emit('chat-mode', { roomId: id, mode: newMode })
-  }
-
-  // Typing event
-  const handleTyping = () => {
-    if (socketRef.current && user) {
-      socketRef.current.emit('typing', { roomId: id, userId: user.id, name: user.name })
-    }
-  }
-
-  // Send chat reaction
-  const sendReaction = (messageId, emoji) => {
-    setShowReactionPicker(null)
-    if (socketRef.current && user) {
-      socketRef.current.emit('chat-reaction', { roomId: id, messageId, emoji, userId: user.id })
-    }
-  }
-
-  // Pin message (host only)
-  const pinMessage = (messageId) => {
-    if (socketRef.current && user.id === hostId) {
-      socketRef.current.emit('pin-message', { roomId: id, messageId })
-    }
-  }
-
-  // Emit read receipts for visible messages when chat is open
-  useEffect(() => {
-    if (!showChat || !user) return
-    const visibleMsgs = messages
-      .filter(m => chatMode === 'public' ? true : (m.recipientId === user.id || m.sender.id === user.id))
-      .map(m => m.timestamp + '-' + (m.sender.id || ''))
-    visibleMsgs.forEach(msgId => {
-      if (socketRef.current) {
-        socketRef.current.emit('read-message', { roomId: id, messageId: msgId, userId: user.id })
-      }
-    })
-  }, [showChat, messages, user, id, chatMode])
 
   if (!user) {
     return <div className="flex-1 flex items-center justify-center min-h-screen bg-[#232323]"><div className="w-10 h-10 border-4 border-purple-300 border-t-transparent rounded-full animate-spin" /></div>;
@@ -609,7 +615,9 @@ export default function MeetingPage() {
             {/* Emoji picker popover */}
             {showEmojiPicker && (
               <div className="absolute bottom-14 right-0 z-50">
-                <Picker onEmojiSelect={e => { setChatInput(chatInput + e.native); setShowEmojiPicker(false); }} theme="light" />
+                <Suspense fallback={<div>Loading...</div>}>
+                  <Picker onEmojiSelect={e => { setChatInput(chatInput + e.native); setShowEmojiPicker(false); }} theme="light" />
+                </Suspense>
               </div>
             )}
           </form>

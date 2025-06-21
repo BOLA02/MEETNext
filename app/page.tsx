@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Video, Link2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,50 +18,55 @@ export default function HomePage() {
     }
   }, [isSignedIn, router])
 
-  const currentDate = new Date().toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  })
-  const currentTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  })
+  // Memoize date and time calculations
+  const { currentDate, currentTime } = useMemo(() => {
+    const now = new Date()
+    return {
+      currentDate: now.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      }),
+      currentTime: now.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+    }
+  }, [])
 
-  const handleSignIn = () => {
+  const handleSignIn = useCallback(() => {
     setIsSignedIn(true)
     router.push("/dashboard")
-  }
+  }, [router])
 
-
-  const generateMeetingLink = () => {
+  const generateMeetingLink = useCallback(() => {
     const randomId = Math.random().toString(36).substring(2, 10)
     return `${window.location.origin}/meeting/${randomId}`
-  }
+  }, [])
 
-  const handleStartInstantMeeting = () => {
-  const meetingId = Math.random().toString(36).substring(2, 10)
-  router.push(`/meetings/${meetingId}`)
-}
+  const handleStartInstantMeeting = useCallback(() => {
+    const meetingId = Math.random().toString(36).substring(2, 10)
+    router.push(`/meetings/${meetingId}`)
+  }, [router])
 
-const handleCopyLink = () => {
-  const meetingId = Math.random().toString(36).substring(2, 10)
-  const meetingLink = `${window.location.origin}/meetings/${meetingId}`
-  navigator.clipboard.writeText(meetingLink)
-    .then(() => {
-      toast.success("Meeting link copied to clipboard!", {
-        style: {
-          backgroundColor: '#7e22ce', // purple-600
-          color: '#fff'
-        }
+  const handleCopyLink = useCallback(() => {
+    const meetingId = Math.random().toString(36).substring(2, 10)
+    const meetingLink = `${window.location.origin}/meetings/${meetingId}`
+    navigator.clipboard.writeText(meetingLink)
+      .then(() => {
+        toast.success("Meeting link copied to clipboard!", {
+          style: {
+            backgroundColor: '#7e22ce', // purple-600
+            color: '#fff'
+          }
+        })
       })
-    })
-    .catch(() => toast.error("Failed to copy the meeting link."))
+      .catch(() => toast.error("Failed to copy the meeting link."))
 
-  // Immediately redirect after copying
-  router.push(`/meetings/${meetingId}`)
-}
+    // Immediately redirect after copying
+    router.push(`/meetings/${meetingId}`)
+  }, [router])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -99,6 +104,7 @@ const handleCopyLink = () => {
             src="/people.png"
             alt="People working together"
             className="w-80 h-48 object-cover rounded-lg"
+            loading="lazy"
           />
         </div>
 

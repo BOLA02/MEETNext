@@ -3,7 +3,8 @@
 import { usePathname, useRouter } from 'next/navigation'
 import {
   Settings,
-  Zap,
+  Calendar,
+  Sparkles,
   Bell,
   Lock,
   Video,
@@ -14,8 +15,8 @@ import {
 
 const items = [
   { label: 'General', icon: Settings },
-  { label: 'Events', icon: Zap },
-  { label: 'AI features', icon: Zap },
+  { label: 'Events', icon: Calendar },
+  { label: 'AI features', icon: Sparkles },
   { label: 'Notification', icon: Bell },
   { label: 'Security & Privacy', icon: Lock },
   { label: 'Recording', icon: Video },

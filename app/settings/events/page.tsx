@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   Select,
   SelectContent,
@@ -12,6 +12,7 @@ import SettingsHeader from '@/components/settings/SettingsHeader'
 import SettingToggle from '@/components/settings/fields/SettingToggle'
 import SettingSelect from '@/components/settings/fields/SettingSelect'
 import SettingRadioGroup from '@/components/settings/fields/SettingRadioGroup'
+import { toast } from 'sonner'
 
 const CAMERA_OPTIONS = ['MacBook HD Camera', 'External USB Camera']
 const SPEAKER_OPTIONS = ['Default Speakers', 'Sonarist SST Audio']
@@ -24,11 +25,22 @@ const SKIN_TONES = ['👍', '✋', '👏']
 const REACTION_EMOJIS = ['👍', '✋', '👏', '😂']
 
 const LS_KEY = 'event_settings_v1'
+const TEMPLATES_KEY = 'event_templates_v1'
 
 export default function EventsSettings() {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
 
   const [search, setSearch] = useState('')
+  const [isTestingAudio, setIsTestingAudio] = useState(false)
+  const [isTestingVideo, setIsTestingVideo] = useState(false)
+  const [templates, setTemplates] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(TEMPLATES_KEY)
+      return saved ? JSON.parse(saved) : []
+    }
+    return []
+  })
 
   const [settings, setSettings] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -60,11 +72,18 @@ export default function EventsSettings() {
     localStorage.setItem(LS_KEY, JSON.stringify(settings))
   }, [settings])
 
+  useEffect(() => {
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates))
+  }, [templates])
+
   // Video preview from camera
   useEffect(() => {
     if (!videoFile) {
       navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
         if (videoRef.current) videoRef.current.srcObject = stream
+      }).catch((error) => {
+        console.error('Error accessing camera:', error)
+        toast.error('Could not access camera')
       })
     }
   }, [videoFile])
@@ -82,10 +101,146 @@ export default function EventsSettings() {
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0]
-    if (file) setVideoFile(file)
+    if (file) {
+      setVideoFile(file)
+      toast.success('Video file loaded successfully')
+    }
   }
 
-  const handleChange = (key, value) => setSettings((s) => ({ ...s, [key]: value }))
+  const handleChange = useCallback((key, value) => {
+    setSettings((s) => ({ ...s, [key]: value }))
+    toast.success(`${key} updated`)
+  }, [])
+
+  // Test audio functionality
+  const testAudio = useCallback(async () => {
+    try {
+      setIsTestingAudio(true)
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const audio = new Audio()
+      audio.srcObject = stream
+      audio.play()
+      
+      // Play a test tone
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+      const oscillator = audioContext.createOscillator()
+      const gainNode = audioContext.createGain()
+      
+      oscillator.connect(gainNode)
+      gainNode.connect(audioContext.destination)
+      
+      oscillator.frequency.setValueAtTime(440, audioContext.currentTime) // A4 note
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime)
+      
+      oscillator.start(audioContext.currentTime)
+      oscillator.stop(audioContext.currentTime + 0.5)
+      
+      setTimeout(() => {
+        stream.getTracks().forEach(track => track.stop())
+        setIsTestingAudio(false)
+        toast.success('Audio test completed')
+      }, 500)
+    } catch (error) {
+      console.error('Error testing audio:', error)
+      toast.error('Could not test audio')
+      setIsTestingAudio(false)
+    }
+  }, [])
+
+  // Test video functionality
+  const testVideo = useCallback(async () => {
+    try {
+      setIsTestingVideo(true)
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play()
+      }
+      
+      setTimeout(() => {
+        stream.getTracks().forEach(track => track.stop())
+        setIsTestingVideo(false)
+        toast.success('Video test completed')
+      }, 3000)
+    } catch (error) {
+      console.error('Error testing video:', error)
+      toast.error('Could not test video')
+      setIsTestingVideo(false)
+    }
+  }, [])
+
+  // Template management functions
+  const saveAsTemplate = useCallback(() => {
+    const templateName = prompt('Enter template name:')
+    if (templateName) {
+      const newTemplate = {
+        id: Date.now(),
+        name: templateName,
+        settings: { ...settings },
+        createdAt: new Date().toISOString()
+      }
+      setTemplates(prev => [...prev, newTemplate])
+      toast.success(`Template "${templateName}" saved successfully`)
+    }
+  }, [settings])
+
+  const loadTemplate = useCallback((template) => {
+    if (confirm(`Load template "${template.name}"? This will override current settings.`)) {
+      setSettings(template.settings)
+      toast.success(`Template "${template.name}" loaded successfully`)
+    }
+  }, [])
+
+  const deleteTemplate = useCallback((templateId) => {
+    if (confirm('Delete this template?')) {
+      setTemplates(prev => prev.filter(t => t.id !== templateId))
+      toast.success('Template deleted successfully')
+    }
+  }, [])
+
+  // Reset settings
+  const resetSettings = useCallback(() => {
+    if (confirm('Reset all settings to default? This cannot be undone.')) {
+      setSettings({})
+      toast.success('Settings reset to default')
+    }
+  }, [])
+
+  // Export/Import settings
+  const exportSettings = useCallback(() => {
+    const dataStr = JSON.stringify(settings, null, 2)
+    const dataBlob = new Blob([dataStr], { type: 'application/json' })
+    const url = URL.createObjectURL(dataBlob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'event-settings.json'
+    link.click()
+    URL.revokeObjectURL(url)
+    toast.success('Settings exported successfully')
+  }, [settings])
+
+  const importSettings = useCallback(() => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+    input.onchange = (e) => {
+      const file = e.target.files?.[0]
+      if (file) {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          try {
+            const importedSettings = JSON.parse(e.target.result)
+            setSettings(importedSettings)
+            toast.success('Settings imported successfully')
+          } catch (error) {
+            toast.error('Invalid settings file')
+          }
+        }
+        reader.readAsText(file)
+      }
+    }
+    input.click()
+  }, [])
 
   const match = (text: string) => text.toLowerCase().includes(searchTerm)
 
@@ -104,13 +259,20 @@ export default function EventsSettings() {
               <video ref={videoRef} autoPlay muted playsInline className="w-full rounded-lg border object-cover h-56" />
             )}
             <input type="file" accept="video/*" className="hidden" id="video-upload" onChange={handleFileChange} />
-            <label htmlFor="video-upload" className="absolute top-2 right-2 bg-white/80 rounded-full p-2 shadow cursor-pointer">📷</label>
+            <label htmlFor="video-upload" className="absolute top-2 right-2 bg-white/80 rounded-full p-2 shadow cursor-pointer hover:bg-white transition-colors">📷</label>
           </div>
           <div className="flex gap-4 flex-wrap">
             <SettingSelect label="Camera" options={CAMERA_OPTIONS} value={settings.camera || CAMERA_OPTIONS[0]} onChange={v => handleChange('camera', v)} />
             <SettingToggle label="Original ratio" checked={!!settings.originalRatio} onChange={v => handleChange('originalRatio', v)} />
             <SettingToggle label="HD" checked={!!settings.hd} onChange={v => handleChange('hd', v)} />
             <SettingToggle label="Mirror my video" checked={!!settings.mirror} onChange={v => handleChange('mirror', v)} />
+            <button 
+              onClick={testVideo}
+              disabled={isTestingVideo}
+              className="px-5 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isTestingVideo ? 'Testing...' : 'Test'}
+            </button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <SettingToggle label="Always display participant names on their video" checked={!!settings.displayNames} onChange={v => handleChange('displayNames', v)} />
@@ -132,6 +294,13 @@ export default function EventsSettings() {
             <SettingSelect label="Microphone" options={MIC_OPTIONS} value={settings.mic || MIC_OPTIONS[0]} onChange={v => handleChange('mic', v)} />
             <SettingToggle label="Spatial audio" checked={!!settings.spatialAudio} onChange={v => handleChange('spatialAudio', v)} />
             <SettingToggle label="Use separate audio device for ringtone" checked={!!settings.separateRingtone} onChange={v => handleChange('separateRingtone', v)} />
+            <button 
+              onClick={testAudio}
+              disabled={isTestingAudio}
+              className="px-5 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isTestingAudio ? 'Testing...' : 'Test'}
+            </button>
           </div>
           <div className="flex items-center gap-4">
             <label>Volume</label>
@@ -203,7 +372,7 @@ export default function EventsSettings() {
             </div>
             <div>
               <label className="block font-medium mb-1">Include event calendar or links</label>
-              <input className="border rounded px-2 py-1" placeholder="Add event calendar link..." value={settings.calendarLink || ''} onChange={e => handleChange('calendarLink', e.target.value)} />
+              <input className="border rounded px-2 py-1" placeholder="Add event calendar link..." value={settings.calendarLink || ''} onChange={e => handleChange('calendarlink', e.target.value)} />
             </div>
             <div>
               <label className="block font-medium mb-1">Custom reminder message</label>
@@ -222,9 +391,64 @@ export default function EventsSettings() {
         <section className="bg-white p-6 rounded-lg shadow border space-y-6">
           <h2 className="text-lg font-semibold">Event templates</h2>
           <div className="flex gap-4 flex-wrap">
-            <button className="border rounded px-4 py-2 bg-purple-50 hover:bg-purple-100" onClick={() => alert('Save current settings as template (not implemented)')}>Save as template</button>
-            <button className="border rounded px-4 py-2 bg-gray-50 hover:bg-gray-100" onClick={() => alert('Load template (not implemented)')}>Load template</button>
+            <button 
+              className="border rounded px-4 py-2 bg-purple-50 hover:bg-purple-100 transition-colors" 
+              onClick={saveAsTemplate}
+            >
+              Save as template
+            </button>
+            <button 
+              className="border rounded px-4 py-2 bg-gray-50 hover:bg-gray-100 transition-colors" 
+              onClick={exportSettings}
+            >
+              Export settings
+            </button>
+            <button 
+              className="border rounded px-4 py-2 bg-gray-50 hover:bg-gray-100 transition-colors" 
+              onClick={importSettings}
+            >
+              Import settings
+            </button>
+            <button 
+              className="border rounded px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 transition-colors" 
+              onClick={resetSettings}
+            >
+              Reset to default
+            </button>
           </div>
+          
+          {/* Saved Templates */}
+          {templates.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="font-semibold">Saved Templates</h4>
+              <div className="grid gap-2">
+                {templates.map((template) => (
+                  <div key={template.id} className="flex items-center justify-between p-3 border rounded bg-gray-50">
+                    <div>
+                      <div className="font-medium">{template.name}</div>
+                      <div className="text-xs text-gray-500">
+                        Created: {new Date(template.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors"
+                        onClick={() => loadTemplate(template)}
+                      >
+                        Load
+                      </button>
+                      <button 
+                        className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors"
+                        onClick={() => deleteTemplate(template.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       )}
 
@@ -248,7 +472,13 @@ export default function EventsSettings() {
             <div className="flex gap-2 items-center">
               <span>Skin tone:</span>
               {SKIN_TONES.map((tone) => (
-                <button key={tone} className={`text-2xl px-1 ${settings.skinTone === tone ? 'ring-2 ring-purple-500 rounded' : ''}`} onClick={() => handleChange('skinTone', tone)}>{tone}</button>
+                <button 
+                  key={tone} 
+                  className={`text-2xl px-1 ${settings.skinTone === tone ? 'ring-2 ring-purple-500 rounded' : ''} hover:scale-110 transition-transform`} 
+                  onClick={() => handleChange('skinTone', tone)}
+                >
+                  {tone}
+                </button>
               ))}
             </div>
             <SettingToggle label="Allow attendees to send emojis or GIFs in chat" checked={!!settings.allowEmojis} onChange={v => handleChange('allowEmojis', v)} />
