@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Video, Keyboard, Plus, Link as LinkIcon } from "lucide-react"
+import { Video, Keyboard, X, Link as LinkIcon, PlusCircle, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
@@ -9,13 +9,79 @@ import Link from 'next/link'
 import { toast } from "sonner"
 import AnimatedMeetingGraphic from "@/components/ui/AnimatedMeetingGraphic"
 
+const NewMeetingModal = ({ isOpen, onClose, onStartMeeting, onCopyLink }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 shadow-xl transform transition-all animate-in zoom-in-95 duration-300">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">New Meeting</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X size={24} />
+          </button>
+        </div>
+        <div className="space-y-4">
+          <button
+            onClick={onStartMeeting}
+            className="w-full flex items-center gap-4 p-4 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors text-purple-700"
+          >
+            <PlusCircle size={28} />
+            <div>
+              <h3 className="font-semibold text-left">Start an instant meeting</h3>
+              <p className="text-sm text-gray-600 text-left">Jump right into a new meeting</p>
+            </div>
+          </button>
+          <button
+            onClick={onCopyLink}
+            className="w-full flex items-center gap-4 p-4 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-gray-800"
+          >
+            <LinkIcon size={28} />
+            <div>
+              <h3 className="font-semibold text-left">Get a link to share</h3>
+              <p className="text-sm text-gray-600 text-left">Create a link and send it to participants</p>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function InstantMeetingPage() {
   const [meetingCode, setMeetingCode] = useState("")
+  const [isSpinning, setIsSpinning] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const router = useRouter()
+
+  const handleNewMeetingClick = () => {
+    setIsSpinning(true);
+    setTimeout(() => {
+      setIsSpinning(false);
+      setIsModalOpen(true);
+    }, 1000); // Match animation duration
+  };
 
   const handleStartInstantMeeting = () => {
     const meetingId = Math.random().toString(36).substring(2, 10)
     router.push(`/meetings/${meetingId}`)
+  }
+
+  const handleCopyLink = () => {
+    const meetingId = Math.random().toString(36).substring(2, 10)
+    const meetingLink = `${window.location.origin}/meetings/${meetingId}`
+    navigator.clipboard.writeText(meetingLink)
+      .then(() => {
+        toast.success("Meeting link copied to clipboard!", {
+          description: meetingLink,
+          action: {
+            label: "Join",
+            onClick: () => router.push(`/meetings/${meetingId}`),
+          },
+        });
+      })
+      .catch(() => toast.error("Failed to copy the meeting link."))
+    setIsModalOpen(false)
   }
 
   const handleJoinMeeting = (e) => {
@@ -49,6 +115,17 @@ export default function InstantMeetingPage() {
 
   return (
     <div className="flex h-screen bg-white">
+      <style>
+        {`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(1440deg); }
+          }
+          .spinning {
+            animation: spin 1s ease-out;
+          }
+        `}
+      </style>
       {/* Left Pane */}
       <div className="flex flex-1 flex-col justify-between p-8">
         <header className="flex items-center justify-between">
@@ -74,8 +151,9 @@ export default function InstantMeetingPage() {
 
           <div className="flex items-center gap-4 w-full">
             <Button
-              onClick={handleStartInstantMeeting}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-6 text-base rounded-md flex items-center gap-2 transition-all duration-300 shadow-md hover:shadow-lg"
+              onClick={handleNewMeetingClick}
+              className={`bg-purple-600 hover:bg-purple-700 text-white px-6 py-6 text-base rounded-md flex items-center gap-2 transition-all duration-300 shadow-md hover:shadow-lg ${isSpinning ? 'spinning' : ''}`}
+              disabled={isSpinning}
             >
               <Video className="h-5 w-5" />
               <span>New meeting</span>
@@ -130,6 +208,12 @@ export default function InstantMeetingPage() {
           </div>
         </div>
       </div>
+      <NewMeetingModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onStartMeeting={handleStartInstantMeeting}
+        onCopyLink={handleCopyLink}
+      />
     </div>
   )
 }

@@ -30,7 +30,7 @@ const AnimatedMeetingGraphic = () => (
         }
         
         .orbit-item {
-          animation: item-face-camera 35s linear infinite;
+          /* animation: item-face-camera 35s linear infinite; */ /* Removed to make items rotate with orbit */
           transform-origin: center;
         }
 
@@ -39,10 +39,10 @@ const AnimatedMeetingGraphic = () => (
           to { transform: rotate(360deg); }
         }
 
-        @keyframes item-face-camera {
+        /* @keyframes item-face-camera {
           from { transform: rotate(0deg); }
           to { transform: rotate(-360deg); }
-        }
+        } */
       `}
     </style>
     
