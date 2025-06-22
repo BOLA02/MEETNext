@@ -126,7 +126,11 @@ const SettingsSidebar = memo(() => {
           </span>
         </div>
         <span className="text-xs text-gray-500">
-          Expires {new Date(userData.planExpiry).toLocaleDateString()}
+          Expires {new Date(userData.planExpiry).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: '2-digit', 
+            day: '2-digit' 
+          })}
         </span>
       </div>
     </div>
