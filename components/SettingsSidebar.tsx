@@ -160,13 +160,13 @@ const SettingsSidebar = memo(() => {
               onClick={() => handleNavigation(href)}
               className={`group flex items-center justify-between w-full text-left px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
                 active 
-                  ? 'bg-purple-50 text-purple-700 border border-purple-200' 
+                  ? 'bg-[#008080]/10 text-[#008080] border border-[#008080]/20' 
                   : 'hover:bg-gray-50 text-gray-700 hover:text-gray-900'
               }`}
             >
               <div className="flex items-center space-x-3">
                 <Icon className={`w-4 h-4 ${
-                  active ? 'text-purple-600' : 'text-gray-400 group-hover:text-gray-600'
+                  active ? 'text-[#008080]' : 'text-gray-400 group-hover:text-gray-600'
                 }`} />
                 <div className="text-left">
                   <div className="flex items-center space-x-2">
@@ -176,14 +176,14 @@ const SettingsSidebar = memo(() => {
                     )}
                   </div>
                   <p className={`text-xs mt-0.5 ${
-                    active ? 'text-purple-600' : 'text-gray-400'
+                    active ? 'text-[#008080]/80' : 'text-gray-400'
                   }`}>
                     {description}
                   </p>
                 </div>
               </div>
               <ChevronRight className={`w-4 h-4 transition-transform ${
-                active ? 'text-purple-600 rotate-90' : 'text-gray-300 group-hover:text-gray-400'
+                active ? 'text-[#008080] rotate-90' : 'text-gray-300 group-hover:text-gray-400'
               }`} />
             </button>
           )

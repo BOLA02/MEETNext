@@ -13,6 +13,7 @@ import SettingToggle from '@/components/settings/fields/SettingToggle'
 import SettingSelect from '@/components/settings/fields/SettingSelect'
 import SettingRadioGroup from '@/components/settings/fields/SettingRadioGroup'
 import { toast } from 'sonner'
+import { AlertTriangle, X, RotateCcw } from 'lucide-react'
 
 const CAMERA_OPTIONS = ['MacBook HD Camera', 'External USB Camera']
 const SPEAKER_OPTIONS = ['Default Speakers', 'Sonarist SST Audio']
@@ -27,6 +28,59 @@ const REACTION_EMOJIS = ['👍', '✋', '👏', '😂']
 const LS_KEY = 'event_settings_v1'
 const TEMPLATES_KEY = 'event_templates_v1'
 
+function ResetConfirmationModal({ isOpen, onClose, onConfirm }) {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="w-5 h-5 text-orange-500" />
+            <h3 className="text-lg font-semibold text-gray-900">Reset Settings</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="mb-6">
+          <p className="text-gray-600 mb-3">
+            Are you sure you want to reset all event settings to their default values?
+          </p>
+          <div className="bg-orange-50 border border-orange-200 rounded-md p-3">
+            <div className="flex items-start space-x-2">
+              <AlertTriangle className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-orange-800">
+                <strong>Warning:</strong> This action cannot be undone. All your custom event preferences will be lost.
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors flex items-center space-x-2"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>Reset All Settings</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function EventsSettings() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -34,21 +88,9 @@ export default function EventsSettings() {
   const [search, setSearch] = useState('')
   const [isTestingAudio, setIsTestingAudio] = useState(false)
   const [isTestingVideo, setIsTestingVideo] = useState(false)
-  const [templates, setTemplates] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(TEMPLATES_KEY)
-      return saved ? JSON.parse(saved) : []
-    }
-    return []
-  })
-
-  const [settings, setSettings] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(LS_KEY)
-      return saved ? JSON.parse(saved) : {}
-    }
-    return {}
-  })
+  const [templates, setTemplates] = useState([])
+  const [settings, setSettings] = useState({})
+  const [showResetModal, setShowResetModal] = useState(false)
 
   // Video preview
   const [videoFile, setVideoFile] = useState(null)
@@ -69,6 +111,18 @@ export default function EventsSettings() {
   const searchTerm = search.trim().toLowerCase()
 
   useEffect(() => {
+    const savedTemplates = localStorage.getItem(TEMPLATES_KEY)
+    if (savedTemplates) {
+      setTemplates(JSON.parse(savedTemplates))
+    }
+
+    const savedSettings = localStorage.getItem(LS_KEY)
+    if (savedSettings) {
+      setSettings(JSON.parse(savedSettings))
+    }
+  }, [])
+
+  useEffect(() => {
     localStorage.setItem(LS_KEY, JSON.stringify(settings))
   }, [settings])
 
@@ -78,13 +132,21 @@ export default function EventsSettings() {
 
   // Video preview from camera
   useEffect(() => {
+    let stream: MediaStream | null = null
     if (!videoFile) {
-      navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+      navigator.mediaDevices.getUserMedia({ video: true }).then((s) => {
+        stream = s
         if (videoRef.current) videoRef.current.srcObject = stream
       }).catch((error) => {
         console.error('Error accessing camera:', error)
         toast.error('Could not access camera')
       })
+    }
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop())
+      }
     }
   }, [videoFile])
 
@@ -200,10 +262,9 @@ export default function EventsSettings() {
 
   // Reset settings
   const resetSettings = useCallback(() => {
-    if (confirm('Reset all settings to default? This cannot be undone.')) {
-      setSettings({})
-      toast.success('Settings reset to default')
-    }
+    setSettings({})
+    toast.success('Settings reset to default')
+    setShowResetModal(false)
   }, [])
 
   // Export/Import settings
@@ -411,7 +472,7 @@ export default function EventsSettings() {
             </button>
             <button 
               className="border rounded px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 transition-colors" 
-              onClick={resetSettings}
+              onClick={() => setShowResetModal(true)}
             >
               Reset to default
             </button>
@@ -487,6 +548,12 @@ export default function EventsSettings() {
           </div>
         </section>
       )}
+
+      <ResetConfirmationModal 
+        isOpen={showResetModal}
+        onClose={() => setShowResetModal(false)}
+        onConfirm={resetSettings}
+      />
     </div>
   )
 }
