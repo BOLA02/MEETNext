@@ -7,13 +7,12 @@ import { Check, Plus } from 'lucide-react'
 // --- SVG Icon Components ---
 // Using inline SVGs to ensure they are always available and avoid 404 errors.
 const GoogleCalendarIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24">
-    <path fill="#4285F4" d="M20.5 12.5h-2.25a.75.75 0 0 0-.75.75v2.25h-3v-3h2.25a.75.75 0 0 0 .75-.75V9.5h-2.25a.75.75 0 0 0-.75.75v2.25h-3v-3h2.25a.75.75 0 0 0 .75-.75V6.5h-2.25a.75.75 0 0 0-.75.75v2.25h-3v-3h2.25a.75.75 0 0 0 .75-.75V6.5h-2.25a.75.75 0 0 0-.75.75v2.25h-3v-3H8.5a.75.75 0 0 0 .75.75H11.5v-2.25a.75.75 0 0 0-.75-.75H8.5v-3h2.25a.75.75 0 0 0 .75-.75V6.5h2.25v2.25a.75.75 0 0 0 .75.75H17v3h-2.25a.75.75 0 0 0-.75.75v2.25H16v-2.25a.75.75 0 0 0-.75-.75h-2.25v3h2.25a.75.75 0 0 0 .75-.75v-2.25h2.25v2.25a.75.75 0 0 0 .75.75h2.25v-1.25a.75.75 0 0 0-.75-.75H20.5v-2.25a.75.75 0 0 0-.75-.75h-2.25V12.5h2.25a.75.75 0 0 0 .75-.75v-2.25H22v2.25a.75.75 0 0 0-.75.75z"/>
-    <path fill="#34A853" d="M12.5 14.5v3h-3v-3z"/>
-    <path fill="#FBBC05" d="M12.5 9.5v3h-3v-3z"/>
-    <path fill="#EA4335" d="M9.5 12.5h3v-3h-3z"/>
-    <path fill="#1A73E8" d="M14.5 12.5h3v-3h-3z"/>
-    <path fill="#1A73E8" d="M17.5 14.5h2.25a.75.75 0 0 0 .75-.75V11.5h-3v3zM6.5 9.5H9.5v-3H7.25a.75.75 0 0 0-.75.75z"/>
+  <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+    <path d="M5.5 3C4.67 3 4 3.67 4 4.5V27.5C4 28.33 4.67 29 5.5 29h21c.83 0 1.5-.67 1.5-1.5V4.5C28 3.67 27.33 3 26.5 3H5.5z" fill="#FFF"/>
+    <path d="M4 10h24V4.5C28 3.67 27.33 3 26.5 3h-21C4.67 3 4 3.67 4 4.5V10z" fill="#4285F4"/>
+    <rect x="9" y="3" width="2" height="3" fill="#FFF"/>
+    <rect x="21" y="3" width="2" height="3" fill="#FFF"/>
+    <text x="16" y="22" fontSize="14" fontFamily="Roboto, Arial, sans-serif" fontWeight="500" fill="#4285F4" textAnchor="middle">31</text>
   </svg>
 )
 

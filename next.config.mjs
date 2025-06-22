@@ -33,7 +33,6 @@ const nextConfig = {
     pagesBufferLength: 2,
   },
   // Performance optimizations
-  swcMinify: true,
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
