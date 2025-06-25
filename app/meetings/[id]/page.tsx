@@ -49,7 +49,7 @@ export default function MeetingPage() {
   const { id } = useParams()
   const router = useRouter()
   const [copied, setCopied] = useState(false)
-  const [micOn, setMicOn] = useState(false)
+  const [micOn, setMicOn] = useState(true)
   const [videoOn, setVideoOn] = useState(true)
   const [user, setUser] = useState<Participant | null>(null)
   const [participants, setParticipants] = useState<Participant[]>([])
@@ -102,6 +102,10 @@ export default function MeetingPage() {
   const [backgroundBlur, setBackgroundBlur] = useState(false)
   const [appearance, setAppearance] = useState<'system' | 'light' | 'dark'>('system')
   const [isScreenSharing, setIsScreenSharing] = useState(false)
+  const [emojiBar, setEmojiBar] = useState(false)
+  const [selectedEmoji, setSelectedEmoji] = useState(null)
+  const [screenStream, setScreenStream] = useState(null)
+  const emojiList = ['😂','😊','🔥','😍','🥳','💯','👏','🙏'];
 
   // Memoized user initialization function
   const initializeUser = useCallback(() => {
@@ -218,8 +222,8 @@ export default function MeetingPage() {
     })
     return () => {
       if (socket) {
-        socket.emit('leave-room', { roomId: id })
-        socket.disconnect()
+      socket.emit('leave-room', { roomId: id })
+      socket.disconnect()
       }
     }
   }, [user, id, showChat, handleParticipants, handleReaction, handleStateUpdate, handleChatMessage, micOn, videoOn])
@@ -248,7 +252,7 @@ export default function MeetingPage() {
       setVideoError(null)
       navigator.mediaDevices.getUserMedia({ video: true, audio: false })
         .then(s => {
-          stream = s;
+        stream = s;
           setLocalStream(s);
           if (localVideoRef.current) {
             localVideoRef.current.srcObject = s;
@@ -265,7 +269,7 @@ export default function MeetingPage() {
         setLocalStream(null);
       }
       if (localVideoRef.current) {
-        localVideoRef.current.srcObject = null;
+      localVideoRef.current.srcObject = null;
       }
       setVideoLoading(false)
       setVideoError(null)
@@ -285,8 +289,64 @@ export default function MeetingPage() {
     setTimeout(() => setCopied(false), 1500)
   }, [meetingLink])
 
-  const handleToggleMic = useCallback(() => setMicOn((v) => !v), [])
-  const handleToggleVideo = useCallback(() => setVideoOn((v) => !v), [])
+  const handleToggleMic = () => {
+    setMicOn((prev) => !prev);
+    // Broadcast mic state via socket here
+  };
+  const handleToggleVideo = () => {
+    setVideoOn((prev) => !prev);
+    // Broadcast video state via socket here
+  };
+  const handleShareScreen = async () => {
+    if (!isScreenSharing) {
+      try {
+        const sStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        setIsScreenSharing(true);
+        setScreenStream(sStream);
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = sStream;
+        }
+        sStream.getVideoTracks()[0].onended = () => {
+          setIsScreenSharing(false);
+          setScreenStream(null);
+          // Revert to camera
+          if (localStream && localVideoRef.current) {
+            localVideoRef.current.srcObject = localStream;
+          }
+          toast.info('Screen sharing stopped');
+        };
+      } catch (err) {
+        // handle error
+      }
+    } else {
+      setIsScreenSharing(false);
+      if (screenStream) {
+        screenStream.getTracks().forEach(track => track.stop());
+      }
+      setScreenStream(null);
+      // Revert to camera
+      if (localStream && localVideoRef.current) {
+        localVideoRef.current.srcObject = localStream;
+      }
+      toast.info('Screen sharing stopped');
+    }
+  };
+  const handleRaiseHand = () => {
+    setHandRaised((prev) => {
+      const newState = !prev;
+      toast.info(newState ? 'Hand raised' : 'Hand lowered');
+      return newState;
+    });
+    // Broadcast hand raise via socket here
+  };
+  const handleStickers = () => setShowStickers((v) => !v);
+  const handleCaptions = () => setCaptionsOn((v) => !v);
+  const handleSelectEmoji = (emoji) => {
+    setSelectedEmoji(emoji);
+    setShowStickers(false);
+    // Broadcast emoji reaction via socket here
+    setTimeout(() => setSelectedEmoji(null), 2000);
+  };
   
   const handleLeave = useCallback(() => {
     if (localStream) {
@@ -295,24 +355,7 @@ export default function MeetingPage() {
     router.push('/')
   }, [localStream, router])
 
-  const handleRaiseHand = useCallback(() => {
-    setHandRaised((v) => !v)
-    if (socketRef.current) {
-      socketRef.current.emit('reaction', { roomId: id, userId: user?.id, emoji: handRaised ? null : '✋' })
-    }
-  }, [handRaised, id, user?.id])
-
-  const handleStickers = useCallback(() => setShowStickers((v) => !v), [])
-  const handleCaptions = useCallback(() => setCaptionsOn((v) => !v), [])
   const handleMore = useCallback(() => {}, [])
-
-  const handleSelectSticker = useCallback((emoji) => {
-    setSelectedSticker(emoji)
-    if (socketRef.current) {
-      socketRef.current.emit('reaction', { roomId: id, userId: user?.id, emoji })
-    }
-    setTimeout(() => setSelectedSticker(null), 2000)
-  }, [id, user?.id])
 
   const sendMessage = useCallback((e, fileUrl = null, fileType = null, fileName = null) => {
     e.preventDefault()
@@ -378,18 +421,6 @@ export default function MeetingPage() {
 
   // Stickers modal
   // Google Meet style emoji stickers 
-  const stickers = [
-    '💖', // Heart with stars
-    '👍', // Thumbs up
-    '🎉', // Party popper
-    '👏', // Clapping hands
-    '😂', // Laughing
-    '😮', // Surprised
-    '😢', // Crying
-    '🤔', // Thinking
-    '👎', // Thumbs down
-  ]
-
   function renderParticipant(participant: Participant, index: number, total: number) {
     const isMe = participant.isMe
     const videoRef = isMe ? localVideoRef : null // TODO: remote refs
@@ -458,50 +489,6 @@ export default function MeetingPage() {
   // Responsive grid container
   const gridClasses = `w-full flex flex-wrap justify-center items-center gap-2 md:gap-4 pt-4 pb-32 md:pb-40 transition-all duration-300`
 
-  const handleShareScreen = useCallback(async () => {
-    if (!isScreenSharing) {
-      try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true })
-        setIsScreenSharing(true)
-        setLocalStream(screenStream)
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = screenStream
-        }
-        toast.success('Screen sharing started')
-        // Listen for when the user stops sharing
-        screenStream.getVideoTracks()[0].onended = () => {
-          setIsScreenSharing(false)
-          // Revert to camera
-          navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-            .then((camStream) => {
-              setLocalStream(camStream)
-              if (localVideoRef.current) {
-                localVideoRef.current.srcObject = camStream
-              }
-              toast.info('Screen sharing stopped')
-            })
-        }
-      } catch (err) {
-        toast.error('Screen sharing cancelled or failed')
-      }
-    } else {
-      // Stop screen sharing
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop())
-      }
-      setIsScreenSharing(false)
-      // Revert to camera
-      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-        .then((camStream) => {
-          setLocalStream(camStream)
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = camStream
-          }
-          toast.info('Screen sharing stopped')
-        })
-    }
-  }, [isScreenSharing, localStream])
-
   if (!user) {
     return <div className="flex-1 flex items-center justify-center min-h-screen bg-[#232323]"><div className="w-10 h-10 border-4 border-purple-300 border-t-transparent rounded-full animate-spin" /></div>;
   }
@@ -516,23 +503,43 @@ export default function MeetingPage() {
           <button className="absolute top-6 right-8 bg-white rounded-full w-12 h-12 flex items-center justify-center shadow text-purple-700 hover:bg-white z-20">
             <MoreHorizontal size={28} />
           </button>
-          {/* Centered Avatar */}
+          {/* Centered Avatar or Fullscreen Video/Screen Share */}
           <div className="flex flex-col items-center justify-center h-full w-full">
-            <img src={user.avatar} alt={user.name} className="w-32 h-32 rounded-full border-4 border-white shadow-xl" />
+            {videoOn || isScreenSharing ? (
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover rounded-[32px]"
+                style={{ minHeight: '100%', minWidth: '100%' }}
+              />
+            ) : (
+              <img
+                src={user.avatar}
+                alt={user.name}
+                className="w-32 h-32 rounded-full border-4 border-white shadow-xl"
+              />
+            )}
           </div>
           {/* Name bottom left inside call area */}
           <div className="absolute left-8 bottom-8 text-white text-lg font-semibold drop-shadow-lg z-30" style={{letterSpacing: '0.01em'}}>{user.name}</div>
+          {handRaised && (
+            <div className="absolute top-8 left-8 bg-yellow-400 text-yellow-900 px-4 py-2 rounded-full text-base font-bold shadow z-30 animate-bounce flex items-center gap-2">
+              <Hand size={20} className="inline-block mr-1" /> Hand Raised
+            </div>
+          )}
         </div>
         {/* Toolbar - floating pill below call area */}
         <div className="absolute left-1/2" style={{top: 'calc(50% + 290px)', transform: 'translateX(-50%)'}}>
           <div className="flex items-center gap-3 bg-[#2d1846] bg-opacity-95 rounded-full px-10 py-4 shadow-2xl border border-purple-900 min-w-[600px] min-h-[72px]">
-            <ToolbarButton icon={<MicOff size={28} />} label="Mute" />
-            <ToolbarButton icon={<VideoOff size={28} />} label="Stop video" />
-            <ToolbarButton icon={<Monitor size={28} />} label="Share" />
-            <ToolbarButton icon={<Hand size={28} />} label="Raise hand" />
+            <ToolbarButton icon={<MicOff size={28} />} label="Mute" onClick={handleToggleMic} active={!micOn} />
+            <ToolbarButton icon={<VideoOff size={28} />} label="Stop video" onClick={handleToggleVideo} active={!videoOn} />
+            <ToolbarButton icon={<Monitor size={28} />} label="Share" onClick={handleShareScreen} active={isScreenSharing} />
+            <ToolbarButton icon={<Hand size={28} />} label="Raise hand" onClick={handleRaiseHand} active={handRaised} />
             <ToolbarButton icon={<PhoneOff size={28} />} label="Leave call" red />
-            <ToolbarButton icon={<Smile size={28} />} label="Stickers" />
-            <ToolbarButton icon={<Captions size={28} />} label="Captions" purple active />
+            <ToolbarButton icon={<Smile size={28} />} label="Stickers" onClick={handleStickers} active={showStickers} />
+            <ToolbarButton icon={<Captions size={28} />} label="Captions" purple onClick={handleCaptions} active={captionsOn} />
             <ToolbarButton icon={<MoreHorizontal size={28} />} label="More" />
           </div>
         </div>
@@ -550,6 +557,22 @@ export default function MeetingPage() {
           <button className="bg-transparent text-white rounded-full w-10 h-10 flex items-center justify-center"><MessageCircle size={24} /></button>
         </div>
       </div>
+      {/* Stickers/Emoji Bar */}
+      {showStickers && (
+        <div className="absolute left-1/2" style={{top: 'calc(50% + 210px)', transform: 'translateX(-50%)'}}>
+          <div className="flex items-center gap-2 bg-white rounded-full px-6 py-3 shadow-xl border border-gray-200">
+            {emojiList.map((emoji) => (
+              <button key={emoji} className="text-2xl hover:scale-125 transition-transform" onClick={() => handleSelectEmoji(emoji)}>{emoji}</button>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* Captions Overlay */}
+      {captionsOn && (
+        <div className="absolute left-1/2" style={{top: 'calc(50% + 180px)', transform: 'translateX(-50%)'}}>
+          <div className="bg-black/80 text-white px-6 py-2 rounded-full text-lg shadow-xl">Live captions enabled...</div>
+        </div>
+      )}
     </div>
   )
 }
@@ -562,10 +585,9 @@ function ToolbarButton({ icon, label, red = false, purple = false, onClick, acti
         className={`rounded-full w-14 h-14 flex items-center justify-center text-xl shadow-md transition-all duration-200
           ${red ? 'bg-red-600 hover:bg-red-700 text-white' : purple ? 'bg-purple-600 hover:bg-purple-700 text-white' : active ? 'bg-white text-purple-700 ring-2 ring-purple-400' : 'bg-white hover:bg-gray-100 text-black'}`}
       >
-        {icon}
+          {icon}
       </button>
       <span className={`text-xs mt-1 font-medium ${red ? 'text-red-500' : purple ? 'text-purple-400' : active ? 'text-purple-400' : 'text-white'}`}>{label}</span>
     </div>
   )
 }
- 
