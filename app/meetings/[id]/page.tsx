@@ -507,148 +507,41 @@ export default function MeetingPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-black">
-      {/* Date/Time outside call area - top left */}
-      <div className="absolute top-6 left-6 text-white text-sm opacity-80 select-none z-30">
-        {dateStr} • {timeStr}
-      </div>
-
-      {/* Chat Panel */}
-      {showChat && (
-        <div className="absolute right-6 top-6 bottom-6 w-80 bg-[#2d1846] rounded-2xl shadow-2xl border border-purple-900 z-40 flex flex-col">
-          <div className="p-4 border-b border-purple-800">
-            <div className="flex items-center justify-between">
-              <h3 className="text-white font-semibold">Chat</h3>
-              <button onClick={() => setShowChat(false)} className="text-white hover:text-purple-300">
-                <X size={20} />
-              </button>
-            </div>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {messages.map((msg) => (
-              <div key={msg.id} className="bg-purple-800/50 rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <img src={msg.userAvatar} alt={msg.userName} className="w-6 h-6 rounded-full" />
-                  <span className="text-white text-sm font-medium">{msg.userName}</span>
-                  <span className="text-purple-300 text-xs">{new Date(msg.timestamp).toLocaleTimeString()}</span>
-                </div>
-                <p className="text-white text-sm">{msg.text}</p>
-              </div>
-            ))}
-          </div>
-          
-          <div className="p-4 border-t border-purple-800">
-            <form onSubmit={sendMessage} className="flex gap-2">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Type a message..."
-                className="flex-1 bg-purple-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-              <button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
-                Send
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Stickers Panel */}
-      {showStickers && (
-        <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 bg-[#2d1846] rounded-2xl p-4 shadow-2xl border border-purple-900 z-40">
-          <div className="grid grid-cols-3 gap-2">
-            {stickers.map((sticker) => (
-              <button
-                key={sticker}
-                onClick={() => handleSelectSticker(sticker)}
-                className="text-2xl hover:scale-110 transition-transform p-2 rounded-lg hover:bg-purple-700"
-              >
-                {sticker}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Captions Panel */}
-      {captionsOn && (
-        <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 bg-black/80 text-white px-4 py-2 rounded-full text-sm z-40">
-          Captions: "Hello, this is a test caption..."
-        </div>
-      )}
-
-      {/* Main Meeting Area */}
-      <div className="relative w-full max-w-5xl aspect-video bg-gradient-to-br from-purple-700 via-purple-500 to-purple-400 rounded-3xl shadow-2xl flex flex-col items-center justify-center overflow-hidden border-4 border-black mx-2 mt-8">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-black relative">
+      {/* Main Call Area */}
+      <div className="relative w-full max-w-6xl aspect-video bg-gradient-to-br from-[#7b3fe4] to-[#b18fff] rounded-3xl shadow-2xl flex flex-col items-center justify-center overflow-hidden border-0 mx-auto mt-8" style={{minHeight: '60vh'}}>
         {/* Top right more button */}
         <button className="absolute top-6 right-8 bg-white/80 rounded-full p-3 shadow-lg text-purple-700 hover:bg-white z-20">
           <MoreHorizontal size={28} />
         </button>
-        
-        {/* Video Stream or Avatar */}
-        <div className="flex flex-col items-center justify-center h-full w-full relative">
-          {(videoOn || isScreenSharing) ? (
-            <>
-              <video 
-                ref={localVideoRef} 
-                autoPlay 
-                playsInline 
-                muted 
-                className="w-full h-full object-cover rounded-2xl transition-all duration-300" 
-                onLoadedData={() => setVideoLoading(false)} 
-              />
-              {videoLoading && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 z-20">
-                  <Loader2 className="animate-spin w-10 h-10 text-white mb-2" />
-                  <span className="text-white text-xs">Loading camera...</span>
-                </div>
-              )}
-              {videoError && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20">
-                  <span className="text-red-400 text-sm font-semibold mb-2">{videoError}</span>
-                </div>
-              )}
-              {isScreenSharing && (
-                <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-semibold z-30">
-                  🔴 LIVE
-                </div>
-              )}
-            </>
-          ) : (
-            <img src={user.avatar} alt={user.name} className="w-32 h-32 rounded-full border-4 border-white shadow-xl mb-4" />
-          )}
+        {/* Centered Avatar */}
+        <div className="flex flex-col items-center justify-center h-full w-full">
+          <img src={user.avatar} alt={user.name} className="w-32 h-32 rounded-full border-4 border-white shadow-xl" />
         </div>
-        
-        {/* Name bottom left */}
-        <div className="absolute left-6 bottom-6 text-white text-lg font-semibold drop-shadow-lg z-30">{user.name}</div>
-        
-        {/* Info/Chat absolutely bottom right */}
-        <div className="absolute right-6 bottom-6 flex flex-col gap-4 items-end justify-end z-20">
-          <button className="bg-[#2d1846] text-white rounded-full p-4 shadow-lg mb-2 hover:bg-purple-700"><Info size={22} /></button>
-          <button 
-            onClick={() => setShowChat(!showChat)} 
-            className="bg-[#2d1846] text-white rounded-full p-4 shadow-lg hover:bg-purple-700"
-          >
-            <MessageCircle size={22} />
-          </button>
+        {/* Name bottom left inside call area */}
+        <div className="absolute left-8 bottom-8 text-white text-lg font-semibold drop-shadow-lg z-30">{user.name}</div>
+      </div>
+      {/* Date/Time bottom left outside call area */}
+      <div className="absolute left-16 bottom-32 text-white text-md opacity-80 select-none z-30 font-light">
+        {dateStr}, {timeStr}
+      </div>
+      {/* Toolbar - floating pill at bottom center outside call area */}
+      <div className="absolute left-1/2 bottom-16 -translate-x-1/2 flex flex-row items-center justify-center z-40">
+        <div className="flex items-center gap-2 bg-[#2d1846] bg-opacity-95 rounded-full px-8 py-4 shadow-2xl border border-purple-900">
+          <ToolbarButton icon={<MicOff size={28} />} label="Mute" />
+          <ToolbarButton icon={<VideoOff size={28} />} label="Stop video" />
+          <ToolbarButton icon={<Monitor size={28} />} label="Share" />
+          <ToolbarButton icon={<Hand size={28} />} label="Raise hand" />
+          <ToolbarButton icon={<PhoneOff size={28} />} label="Leave call" red />
+          <ToolbarButton icon={<Smile size={28} />} label="Stickers" />
+          <ToolbarButton icon={<Captions size={28} />} label="Captions" purple active />
+          <ToolbarButton icon={<MoreHorizontal size={28} />} label="More" />
         </div>
       </div>
-      {/* Toolbar and bottom controls */}
-      <div className="w-full max-w-3xl flex flex-row items-end justify-center mt-8 px-4">
-        {/* Toolbar */}
-        <div className="flex-1 flex flex-col items-center">
-          <div className="flex items-center justify-center gap-3 bg-[#2d1846] bg-opacity-95 rounded-full px-8 py-4 shadow-2xl border border-purple-900">
-            <ToolbarButton icon={micOn ? <Mic size={22} /> : <MicOff size={22} />} label={micOn ? "Mute" : "Unmute"} onClick={handleToggleMic} active={micOn} />
-            <ToolbarButton icon={videoOn ? <Video size={22} /> : <VideoOff size={22} />} label={videoOn ? "Stop video" : "Start video"} onClick={handleToggleVideo} active={videoOn} />
-            <ToolbarButton icon={<Monitor size={22} />} label="Share" onClick={handleShareScreen} active={isScreenSharing} />
-            <ToolbarButton icon={<Hand size={22} />} label="Raise hand" onClick={handleRaiseHand} active={handRaised} />
-            <ToolbarButton icon={<PhoneOff size={22} />} label="Leave call" red onClick={handleLeave} />
-            <ToolbarButton icon={<Smile size={22} />} label="Stickers" onClick={handleStickers} active={showStickers} />
-            <ToolbarButton icon={<Captions size={22} />} label="Captions" purple onClick={handleCaptions} active={captionsOn} />
-            <ToolbarButton icon={<MoreHorizontal size={22} />} label="More" onClick={handleMore} />
-          </div>
-        </div>
+      {/* Info/Chat floating buttons bottom right outside call area */}
+      <div className="absolute right-16 bottom-16 flex flex-row gap-6 items-end justify-end z-40">
+        <button className="bg-[#2d1846] text-white rounded-full p-5 shadow-lg hover:bg-purple-700 flex items-center justify-center"><Info size={28} /></button>
+        <button className="bg-[#2d1846] text-white rounded-full p-5 shadow-lg hover:bg-purple-700 flex items-center justify-center"><MessageCircle size={28} /></button>
       </div>
     </div>
   )
