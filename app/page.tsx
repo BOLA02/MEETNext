@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Video, Keyboard, X, Link as LinkIcon, PlusCircle, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -54,6 +54,30 @@ export default function InstantMeetingPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const router = useRouter()
 
+  const [time, setTime] = useState({
+    currentDate: "",
+    currentTime: "",
+  });
+
+  useEffect(() => {
+    const now = new Date();
+    const timeFormatter = new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const dateFormatter = new Intl.DateTimeFormat("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    });
+
+    setTime({
+      currentTime: timeFormatter.format(now),
+      currentDate: dateFormatter.format(now),
+    });
+  }, []);
+
   const handleNewMeetingClick = () => {
     setIsSpinning(true);
     setTimeout(() => {
@@ -95,24 +119,6 @@ export default function InstantMeetingPage() {
     }
   }
 
-  const { currentDate, currentTime } = useMemo(() => {
-    const now = new Date()
-    const timeFormatter = new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    })
-    const dateFormatter = new Intl.DateTimeFormat("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    })
-    return {
-      currentTime: timeFormatter.format(now),
-      currentDate: dateFormatter.format(now),
-    }
-  }, [])
-
   return (
     <div className="flex h-screen bg-white">
       <style>
@@ -133,8 +139,8 @@ export default function InstantMeetingPage() {
             Meetio
           </Link>
           <div className="flex items-center gap-4 text-sm text-gray-500">
-            <span>{currentDate}</span>
-            <span>{currentTime}</span>
+            <span>{time.currentDate}</span>
+            <span>{time.currentTime}</span>
           </div>
         </header>
 

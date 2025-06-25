@@ -101,7 +101,8 @@ function NotificationSettingsPage() {
         {filteredSections.map((section) => (
           <div key={section.id} className="bg-white rounded-lg shadow-sm mb-8 p-6">
             <div className="flex items-center mb-4">
-              {createElement(section.icon, { className: "w-6 h-6 text-blue-600" })}
+              {typeof section.icon === 'function' &&
+                createElement(section.icon, { className: "w-6 h-6 text-blue-600" })}
               <h2 className="text-xl font-semibold text-gray-700 ml-3">{section.title}</h2>
             </div>
             <p className="text-gray-500 mb-6">{section.description}</p>

@@ -188,6 +188,7 @@ export default function SecurityPrivacySettings() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
 
   // Load settings from localStorage
   useEffect(() => {
@@ -258,15 +259,15 @@ export default function SecurityPrivacySettings() {
   // Memoized password change handler
   const handlePasswordChange = useCallback(() => {
     if (newPassword !== confirmPassword) {
-      toast.error('Passwords do not match')
+      setPasswordError('Passwords do not match')
       return
     }
     if (newPassword.length < 8) {
-      toast.error('Password must be at least 8 characters')
+      setPasswordError('Password must be at least 8 characters')
       return
     }
-    
     // Simulate password change
+    setPasswordError('')
     toast.success('Password changed successfully')
     setCurrentPassword('')
     setNewPassword('')
@@ -297,6 +298,17 @@ export default function SecurityPrivacySettings() {
     const enabled = securityConfig.filter(s => s.enabled).length
     return Math.round((enabled / total) * 100)
   }, [securityConfig])
+
+  // Add effect to shake the screen on password error
+  useEffect(() => {
+    if (passwordError) {
+      document.body.classList.add('shake-screen');
+      const timeout = setTimeout(() => {
+        document.body.classList.remove('shake-screen');
+      }, 600);
+      return () => clearTimeout(timeout);
+    }
+  }, [passwordError]);
 
   return (
     <div className="space-y-6">
@@ -370,13 +382,17 @@ export default function SecurityPrivacySettings() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {filteredSecurity.map((setting) => (
-            <SecuritySettingItem
-              key={setting.id}
-              setting={setting}
-              onToggle={handleSecurityToggle}
-            />
-          ))}
+          {filteredSecurity.length > 0 ? (
+            filteredSecurity.map((setting) => (
+              <SecuritySettingItem
+                key={setting.id}
+                setting={setting}
+                onToggle={handleSecurityToggle}
+              />
+            ))
+          ) : (
+            <div className="text-center text-gray-500 py-8">No security settings found.</div>
+          )}
         </CardContent>
       </Card>
 
@@ -400,7 +416,7 @@ export default function SecurityPrivacySettings() {
       </Card>
 
       {/* Password Change */}
-      <Card>
+      <Card className={passwordError ? 'shake' : ''}>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Key className="w-5 h-5 text-orange-600" />
@@ -408,7 +424,7 @@ export default function SecurityPrivacySettings() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-            <div className="space-y-3">
+          <div className="space-y-3">
             <div>
               <Label htmlFor="current-password">Current Password</Label>
               <div className="relative">
@@ -417,7 +433,7 @@ export default function SecurityPrivacySettings() {
                   type={showPassword ? 'text' : 'password'}
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="pr-10"
+                  className={`pr-10 ${passwordError && !currentPassword ? 'border-red-500 focus:ring-red-500 blink-red' : ''}`}
                 />
                 <button
                   type="button"
@@ -427,8 +443,7 @@ export default function SecurityPrivacySettings() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-                  </div>
-            
+            </div>
             <div>
               <Label htmlFor="new-password">New Password</Label>
               <Input
@@ -436,10 +451,9 @@ export default function SecurityPrivacySettings() {
                 type={showPassword ? 'text' : 'password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="pr-10"
+                className={`pr-10 ${passwordError && (passwordError.includes('match') || passwordError.includes('least')) ? 'border-red-500 focus:ring-red-500 blink-red' : ''}`}
               />
-                </div>
-            
+            </div>
             <div>
               <Label htmlFor="confirm-password">Confirm New Password</Label>
               <Input
@@ -447,9 +461,12 @@ export default function SecurityPrivacySettings() {
                 type={showPassword ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="pr-10"
+                className={`pr-10 ${passwordError && passwordError.includes('match') ? 'border-red-500 focus:ring-red-500 blink-red' : ''}`}
               />
             </div>
+            {passwordError && (
+              <div className="text-red-600 text-sm font-semibold mt-1 blink-red">{passwordError}</div>
+            )}
           </div>
           
           <Button 
