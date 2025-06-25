@@ -507,41 +507,48 @@ export default function MeetingPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-black relative">
-      {/* Main Call Area */}
-      <div className="relative w-full max-w-6xl aspect-video bg-gradient-to-br from-[#7b3fe4] to-[#b18fff] rounded-3xl shadow-2xl flex flex-col items-center justify-center overflow-hidden border-0 mx-auto mt-8" style={{minHeight: '60vh'}}>
-        {/* Top right more button */}
-        <button className="absolute top-6 right-8 bg-white/80 rounded-full p-3 shadow-lg text-purple-700 hover:bg-white z-20">
-          <MoreHorizontal size={28} />
-        </button>
-        {/* Centered Avatar */}
-        <div className="flex flex-col items-center justify-center h-full w-full">
-          <img src={user.avatar} alt={user.name} className="w-32 h-32 rounded-full border-4 border-white shadow-xl" />
+    <div className="min-h-screen w-full flex flex-col bg-[#232323] relative" style={{fontFamily: 'Montserrat, Arial, sans-serif'}}>
+      {/* Centered content wrapper */}
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[80vh] relative">
+        {/* Main Call Area - centered */}
+        <div className="relative w-[900px] h-[500px] bg-gradient-to-br from-[#7b3fe4] to-[#b18fff] rounded-[32px] shadow-2xl flex flex-col items-center justify-center overflow-hidden" style={{boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.18)'}}>
+          {/* Top right more button */}
+          <button className="absolute top-6 right-8 bg-white rounded-full w-12 h-12 flex items-center justify-center shadow text-purple-700 hover:bg-white z-20">
+            <MoreHorizontal size={28} />
+          </button>
+          {/* Centered Avatar */}
+          <div className="flex flex-col items-center justify-center h-full w-full">
+            <img src={user.avatar} alt={user.name} className="w-32 h-32 rounded-full border-4 border-white shadow-xl" />
+          </div>
+          {/* Name bottom left inside call area */}
+          <div className="absolute left-8 bottom-8 text-white text-lg font-semibold drop-shadow-lg z-30" style={{letterSpacing: '0.01em'}}>{user.name}</div>
         </div>
-        {/* Name bottom left inside call area */}
-        <div className="absolute left-8 bottom-8 text-white text-lg font-semibold drop-shadow-lg z-30">{user.name}</div>
+        {/* Toolbar - floating pill below call area */}
+        <div className="absolute left-1/2" style={{top: 'calc(50% + 290px)', transform: 'translateX(-50%)'}}>
+          <div className="flex items-center gap-3 bg-[#2d1846] bg-opacity-95 rounded-full px-10 py-4 shadow-2xl border border-purple-900 min-w-[600px] min-h-[72px]">
+            <ToolbarButton icon={<MicOff size={28} />} label="Mute" />
+            <ToolbarButton icon={<VideoOff size={28} />} label="Stop video" />
+            <ToolbarButton icon={<Monitor size={28} />} label="Share" />
+            <ToolbarButton icon={<Hand size={28} />} label="Raise hand" />
+            <ToolbarButton icon={<PhoneOff size={28} />} label="Leave call" red />
+            <ToolbarButton icon={<Smile size={28} />} label="Stickers" />
+            <ToolbarButton icon={<Captions size={28} />} label="Captions" purple active />
+            <ToolbarButton icon={<MoreHorizontal size={28} />} label="More" />
+          </div>
+        </div>
       </div>
-      {/* Date/Time bottom left outside call area */}
-      <div className="absolute left-16 bottom-32 text-white text-md opacity-80 select-none z-30 font-light">
+      {/* White border line under call area */}
+      <div className="w-full flex justify-center"><div className="w-[900px] border-b border-white/20" /></div>
+      {/* Date/Time absolute bottom left */}
+      <div className="absolute left-12 bottom-8 text-white text-[16px] opacity-80 select-none z-30 font-light" style={{fontSize: '1rem', letterSpacing: '0.01em'}}>
         {dateStr}, {timeStr}
       </div>
-      {/* Toolbar - floating pill at bottom center outside call area */}
-      <div className="absolute left-1/2 bottom-16 -translate-x-1/2 flex flex-row items-center justify-center z-40">
-        <div className="flex items-center gap-2 bg-[#2d1846] bg-opacity-95 rounded-full px-8 py-4 shadow-2xl border border-purple-900">
-          <ToolbarButton icon={<MicOff size={28} />} label="Mute" />
-          <ToolbarButton icon={<VideoOff size={28} />} label="Stop video" />
-          <ToolbarButton icon={<Monitor size={28} />} label="Share" />
-          <ToolbarButton icon={<Hand size={28} />} label="Raise hand" />
-          <ToolbarButton icon={<PhoneOff size={28} />} label="Leave call" red />
-          <ToolbarButton icon={<Smile size={28} />} label="Stickers" />
-          <ToolbarButton icon={<Captions size={28} />} label="Captions" purple active />
-          <ToolbarButton icon={<MoreHorizontal size={28} />} label="More" />
+      {/* Info/Chat floating pill bottom right */}
+      <div className="absolute right-12 bottom-8 flex flex-row items-center gap-4 z-40">
+        <div className="flex items-center gap-4 bg-[#2d1846] rounded-full px-6 py-3 shadow-xl">
+          <button className="bg-transparent text-white rounded-full w-10 h-10 flex items-center justify-center"><Info size={24} /></button>
+          <button className="bg-transparent text-white rounded-full w-10 h-10 flex items-center justify-center"><MessageCircle size={24} /></button>
         </div>
-      </div>
-      {/* Info/Chat floating buttons bottom right outside call area */}
-      <div className="absolute right-16 bottom-16 flex flex-row gap-6 items-end justify-end z-40">
-        <button className="bg-[#2d1846] text-white rounded-full p-5 shadow-lg hover:bg-purple-700 flex items-center justify-center"><Info size={28} /></button>
-        <button className="bg-[#2d1846] text-white rounded-full p-5 shadow-lg hover:bg-purple-700 flex items-center justify-center"><MessageCircle size={28} /></button>
       </div>
     </div>
   )
