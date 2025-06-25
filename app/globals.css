@@ -194,4 +194,40 @@ body {
   animation: slide-in 0.3s cubic-bezier(0.4,0,0.2,1);
 }
 
+@keyframes shake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-10px); }
+  40% { transform: translateX(10px); }
+  60% { transform: translateX(-10px); }
+  80% { transform: translateX(10px); }
+  100% { transform: translateX(0); }
+}
+.animate-shake {
+  animation: shake 0.5s;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-fade-in {
+  animation: fadeIn 0.4s;
+}
+@keyframes micPulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+.animate-mic-pulse {
+  animation: micPulse 1.2s infinite;
+}
+
+@keyframes modalFadeScale {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-modal-fade-scale {
+  animation: modalFadeScale 0.35s cubic-bezier(0.4,0,0.2,1);
+}
+
 

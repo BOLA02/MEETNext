@@ -26,6 +26,7 @@ import {
   TabsTrigger,
   TabsContent
 } from '@/components/ui/tabs'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 
 // Lazy load the heavy emoji picker component
 const Picker = lazy(() => import('@emoji-mart/react'))
@@ -105,7 +106,12 @@ export default function MeetingPage() {
   const [emojiBar, setEmojiBar] = useState(false)
   const [selectedEmoji, setSelectedEmoji] = useState(null)
   const [screenStream, setScreenStream] = useState(null)
-  const emojiList = ['😂','😊','🔥','😍','🥳','💯','👏','🙏'];
+  const emojiList = ['😂','😊','🔥','😍','��','💯','👏','🙏'];
+  const [captionText, setCaptionText] = useState('');
+  const recognitionRef = useRef(null);
+  const [finalCaption, setFinalCaption] = useState('');
+  const [interimCaption, setInterimCaption] = useState('');
+  const [showPreShareModal, setShowPreShareModal] = useState(false);
 
   // Memoized user initialization function
   const initializeUser = useCallback(() => {
@@ -290,7 +296,15 @@ export default function MeetingPage() {
   }, [meetingLink])
 
   const handleToggleMic = () => {
-    setMicOn((prev) => !prev);
+    setMicOn((prev) => {
+      const newState = !prev;
+      if (localStream) {
+        localStream.getAudioTracks().forEach(track => {
+          track.enabled = newState;
+        });
+      }
+      return newState;
+    });
     // Broadcast mic state via socket here
   };
   const handleToggleVideo = () => {
@@ -299,25 +313,7 @@ export default function MeetingPage() {
   };
   const handleShareScreen = async () => {
     if (!isScreenSharing) {
-      try {
-        const sStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        setIsScreenSharing(true);
-        setScreenStream(sStream);
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = sStream;
-        }
-        sStream.getVideoTracks()[0].onended = () => {
-          setIsScreenSharing(false);
-          setScreenStream(null);
-          // Revert to camera
-          if (localStream && localVideoRef.current) {
-            localVideoRef.current.srcObject = localStream;
-          }
-          toast.info('Screen sharing stopped');
-        };
-      } catch (err) {
-        // handle error
-      }
+      setShowPreShareModal(true);
     } else {
       setIsScreenSharing(false);
       if (screenStream) {
@@ -329,6 +325,28 @@ export default function MeetingPage() {
         localVideoRef.current.srcObject = localStream;
       }
       toast.info('Screen sharing stopped');
+    }
+  };
+  const startScreenShare = async () => {
+    setShowPreShareModal(false);
+    try {
+      const sStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      setIsScreenSharing(true);
+      setScreenStream(sStream);
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = sStream;
+      }
+      sStream.getVideoTracks()[0].onended = () => {
+        setIsScreenSharing(false);
+        setScreenStream(null);
+        if (localStream && localVideoRef.current) {
+          localVideoRef.current.srcObject = localStream;
+        }
+        toast.info('Screen sharing stopped');
+      };
+    } catch (err) {
+      toast.error('Screen sharing was cancelled.');
+      setShowPreShareModal(false);
     }
   };
   const handleRaiseHand = () => {
@@ -489,6 +507,51 @@ export default function MeetingPage() {
   // Responsive grid container
   const gridClasses = `w-full flex flex-wrap justify-center items-center gap-2 md:gap-4 pt-4 pb-32 md:pb-40 transition-all duration-300`
 
+  useEffect(() => {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      if (captionsOn) toast.error('Speech recognition not supported in this browser.');
+      return;
+    }
+    if (captionsOn) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      recognition.onresult = (event) => {
+        let interim = '';
+        let final = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            final += event.results[i][0].transcript + ' ';
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+        setFinalCaption(final.trim());
+        setInterimCaption(interim);
+      };
+      recognition.onerror = (event) => {
+        toast.error('Speech recognition error: ' + event.error);
+      };
+      recognitionRef.current = recognition;
+      recognition.start();
+    } else {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+      setFinalCaption('');
+      setInterimCaption('');
+    }
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+    };
+  }, [captionsOn]);
+
   if (!user) {
     return <div className="flex-1 flex items-center justify-center min-h-screen bg-[#232323]"><div className="w-10 h-10 border-4 border-purple-300 border-t-transparent rounded-full animate-spin" /></div>;
   }
@@ -498,7 +561,7 @@ export default function MeetingPage() {
       {/* Centered content wrapper */}
       <div className="flex-1 flex flex-col items-center justify-center min-h-[80vh] relative">
         {/* Main Call Area - centered */}
-        <div className="relative w-[900px] h-[500px] bg-gradient-to-br from-[#7b3fe4] to-[#b18fff] rounded-[32px] shadow-2xl flex flex-col items-center justify-center overflow-hidden" style={{boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.18)'}}>
+        <div className={`relative w-[900px] h-[500px] bg-gradient-to-br from-[#7b3fe4] to-[#b18fff] rounded-[32px] shadow-2xl flex flex-col items-center justify-center overflow-hidden${handRaised ? ' animate-shake' : ''}`} style={{boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.18)'}}>
           {/* Top right more button */}
           <button className="absolute top-6 right-8 bg-white rounded-full w-12 h-12 flex items-center justify-center shadow text-purple-700 hover:bg-white z-20">
             <MoreHorizontal size={28} />
@@ -569,8 +632,63 @@ export default function MeetingPage() {
       )}
       {/* Captions Overlay */}
       {captionsOn && (
-        <div className="absolute left-1/2" style={{top: 'calc(50% + 180px)', transform: 'translateX(-50%)'}}>
-          <div className="bg-black/80 text-white px-6 py-2 rounded-full text-lg shadow-xl">Live captions enabled...</div>
+        <div className="absolute left-1/2 animate-fade-in" style={{top: 'calc(50% + 180px)', transform: 'translateX(-50%)'}}>
+          <div
+            className={`bg-black/90 text-white px-8 py-3 rounded-full text-lg shadow-xl min-w-[320px] text-center flex items-center gap-3 transition-all duration-200 ${interimCaption ? 'animate-pulse' : ''}`}
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            <Mic className="inline-block text-green-400 animate-mic-pulse" />
+            <span>
+              <span className="font-semibold text-white">{finalCaption}</span>
+              <span className="text-gray-300 italic ml-1">{interimCaption}</span>
+            </span>
+          </div>
+          {micOn === false && (
+            <div className="mt-2 text-yellow-300 text-xs bg-yellow-900/80 px-3 py-1 rounded-full inline-block animate-pulse">Mic is muted. Captions will not update.</div>
+          )}
+        </div>
+      )}
+      {/* Pre-Screen Share Modal (shadcn/ui Dialog) */}
+      <Dialog open={showPreShareModal} onOpenChange={setShowPreShareModal}>
+        <DialogContent className="max-w-md p-0 animate-modal-fade-scale">
+          <DialogHeader className="flex flex-col items-center justify-center pt-8">
+            <div className="bg-purple-100 rounded-full p-4 mb-4">
+              <Monitor className="w-10 h-10 text-purple-600" />
+            </div>
+            <DialogTitle className="text-2xl font-bold mb-2 text-center">Ready to share your screen?</DialogTitle>
+            <p className="mb-4 text-gray-600 text-center">You'll be asked to pick a window or screen. Only share what you trust.</p>
+          </DialogHeader>
+          <DialogFooter className="flex flex-row items-center justify-center gap-4 pb-8">
+            <button
+              className="flex-grow min-w-[140px] text-gray-600 border border-gray-300 bg-white hover:bg-gray-100 px-6 py-2 rounded-full font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400"
+              onClick={() => setShowPreShareModal(false)}
+              tabIndex={0}
+            >
+              Cancel
+            </button>
+            <button
+              className="flex-grow min-w-[140px] bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-full font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400"
+              onClick={startScreenShare}
+              tabIndex={0}
+            >
+              Start Screen Share
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Screen Sharing Banner */}
+      {isScreenSharing && (
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 z-50 w-full max-w-[900px]">
+          <div className="bg-red-600 text-white px-6 py-2 rounded-b-2xl shadow-xl flex items-center justify-between">
+            <span className="font-semibold">You are sharing your screen</span>
+            <button
+              className="bg-white text-red-600 px-4 py-1 rounded-full font-semibold ml-4 hover:bg-red-100"
+              onClick={handleShareScreen}
+            >
+              Stop Sharing
+            </button>
+          </div>
         </div>
       )}
     </div>
