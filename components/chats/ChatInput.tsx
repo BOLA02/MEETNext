@@ -8,9 +8,10 @@ interface ChatInputProps {
   onSendMessage: (message: string) => void;
   onSendFile?: (fileUrl: string, fileName: string, fileType?: string) => void;
   disabled?: boolean;
+  users?: { id: string; name: string; avatar?: string }[];
 }
 
-export default function ChatInput({ onSendMessage, onSendFile, disabled = false }: ChatInputProps) {
+export default function ChatInput({ onSendMessage, onSendFile, disabled = false, users = [] }: ChatInputProps) {
   const [message, setMessage] = useState("");
   const [showEmoji, setShowEmoji] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -19,6 +20,67 @@ export default function ChatInput({ onSendMessage, onSendFile, disabled = false 
   const [audioPreview, setAudioPreview] = useState<string | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mentionDropdown, setMentionDropdown] = useState({ open: false, query: '', position: 0 });
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const mentionUsers = users.filter(u => u.name.toLowerCase().includes(mentionDropdown.query.toLowerCase()));
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setMessage(value);
+    const cursor = e.target.selectionStart || 0;
+    const textBefore = value.slice(0, cursor);
+    const match = textBefore.match(/@([\w]*)$/);
+    if (match) {
+      setMentionDropdown({ open: true, query: match[1], position: cursor });
+      setMentionIndex(0);
+    } else {
+      setMentionDropdown({ open: false, query: '', position: 0 });
+    }
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (mentionDropdown.open && mentionUsers.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionIndex(i => (i + 1) % mentionUsers.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIndex(i => (i - 1 + mentionUsers.length) % mentionUsers.length);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        insertMention(mentionUsers[mentionIndex]);
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        insertMention(mentionUsers[mentionIndex]);
+      }
+    } else if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const insertMention = (user: { id: string; name: string }) => {
+    if (!inputRef.current) return;
+    const cursor = inputRef.current.selectionStart || 0;
+    const value = message;
+    const textBefore = value.slice(0, cursor);
+    const textAfter = value.slice(cursor);
+    const match = textBefore.match(/@([\w]*)$/);
+    if (match) {
+      const start = match.index ?? 0;
+      const newValue = textBefore.slice(0, start) + '@' + user.name + ' ' + textAfter;
+      setMessage(newValue);
+      setMentionDropdown({ open: false, query: '', position: 0 });
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.setSelectionRange(start + user.name.length + 2, start + user.name.length + 2);
+        }
+      }, 0);
+    }
+  };
 
   const handleSend = () => {
     if (audioPreview && audioBlob && onSendFile) {
@@ -128,13 +190,28 @@ export default function ChatInput({ onSendMessage, onSendFile, disabled = false 
             </div>
           ) : (
             <Input
+              ref={inputRef}
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onChange={handleInputChange}
+              onKeyDown={handleInputKeyDown}
               placeholder={recording ? "Recording..." : "Type a message..."}
               className="pr-28 py-3 rounded-full border-gray-200 focus:border-purple-500 focus:ring-purple-500"
               disabled={disabled || recording}
             />
+          )}
+          {mentionDropdown.open && mentionUsers.length > 0 && (
+            <div className="absolute left-4 bottom-12 z-50 bg-white border rounded shadow-lg w-64 max-h-60 overflow-y-auto">
+              {mentionUsers.map((user, i) => (
+                <div
+                  key={user.id}
+                  className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-purple-100 ${i === mentionIndex ? 'bg-purple-50' : ''}`}
+                  onMouseDown={e => { e.preventDefault(); insertMention(user); }}
+                >
+                  {user.avatar && <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-full" />}
+                  <span className="font-medium">{user.name}</span>
+                </div>
+              ))}
+            </div>
           )}
           <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
             <Button

@@ -7,6 +7,7 @@ import { MoreVertical, Phone, Video, Search, Pin, Camera } from "lucide-react";
 import ChatMessage from "./ChatMessage";
 import ChatInput from "./ChatInput";
 import { io, Socket } from "socket.io-client";
+import { toast } from "sonner";
 
 const SOCKET_URL = "http://localhost:6000";
 
@@ -40,6 +41,25 @@ export default function ChatPanel({ chat }: { chat: Chat | null }) {
     });
     s.on("message", (message: Message) => {
       setCurrentChat((prev) => prev ? { ...prev, messages: [...prev.messages, message] } : null);
+      // Mention detection: show toast if current user is mentioned
+      // Use actual logged-in user's name from localStorage/sessionStorage
+      let currentUser = '';
+      try {
+        const settings = JSON.parse(localStorage.getItem('general_settings_v1') || '{}');
+        if (settings.firstName && settings.lastName) currentUser = `${settings.firstName} ${settings.lastName}`;
+      } catch {}
+      if (!currentUser) {
+        const tempName = sessionStorage.getItem('meetio_temp_name');
+        if (tempName) currentUser = tempName;
+      }
+      if (!currentUser) currentUser = 'You';
+      if (message.content && message.content.includes(`@${currentUser}`)) {
+        toast(`You were mentioned by ${message.sender}`, {
+          description: message.content,
+        });
+        // Dispatch event for sidebar badge
+        window.dispatchEvent(new CustomEvent('mention-received'));
+      }
     });
     s.on("file", (fileMessage: Message) => {
       setCurrentChat((prev) => prev ? { ...prev, messages: [...prev.messages, fileMessage] } : null);
@@ -301,7 +321,7 @@ export default function ChatPanel({ chat }: { chat: Chat | null }) {
         </div>
       )}
       {/* Chat Input */}
-      {tab === 'general' && <ChatInput onSendMessage={handleSendMessage} onSendFile={handleSendFile} />}
+      {tab === 'general' && <ChatInput onSendMessage={handleSendMessage} onSendFile={handleSendFile} users={currentChat?.members || []} />}
     </div>
   );
 }

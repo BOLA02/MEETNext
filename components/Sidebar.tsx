@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { Home, Video, FolderOpen, MessageSquare, AtSign, Users, Star, Hash, AppWindow, MoreHorizontal } from "lucide-react"
 import clsx from "clsx"
+import { useState, useEffect } from "react"
 
 const sidebarSections = [
   {
@@ -37,17 +38,26 @@ const sidebarSections = [
     items: [
       { id: "apps", icon: AppWindow, label: "Apps", href: "/dashboard/apps" },
     ]
-  },
-  {
-    header: 'More',
-    items: [
-      { id: "more", icon: MoreHorizontal, label: "More", href: "/dashboard/more" },
-    ]
-  },
+  }
 ]
 
 const Sidebar = () => {
   const pathname = usePathname()
+  const [unreadMentions, setUnreadMentions] = useState(0)
+
+  // Listen for custom event to increment unread mentions
+  useEffect(() => {
+    function handleMentionEvent(e) {
+      setUnreadMentions((c) => c + 1)
+    }
+    window.addEventListener('mention-received', handleMentionEvent)
+    return () => window.removeEventListener('mention-received', handleMentionEvent)
+  }, [])
+
+  // Reset unread mentions when Mentions page is visited
+  useEffect(() => {
+    if (pathname === '/dashboard/mentions') setUnreadMentions(0)
+  }, [pathname])
 
   return (
     <aside className="w-64 bg-[#23272f] text-white flex flex-col min-h-screen border-r border-gray-900 shadow-lg">
@@ -60,6 +70,7 @@ const Sidebar = () => {
             <div className="flex flex-col gap-1">
               {section.items.map((item) => {
                 const isActive = pathname === item.href
+                const isMentions = item.id === 'mentions'
                 return (
                   <Link
                     key={item.id}
@@ -71,6 +82,9 @@ const Sidebar = () => {
                   >
                     <item.icon className="h-5 w-5" />
                     <span>{item.label}</span>
+                    {isMentions && unreadMentions > 0 && (
+                      <span className="ml-auto text-xs bg-purple-600 text-white rounded-full px-2 py-0.5 font-semibold">{unreadMentions}</span>
+                    )}
                   </Link>
                 )
               })}

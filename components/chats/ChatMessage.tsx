@@ -43,7 +43,19 @@ export default function ChatMessage({ message, showAvatar = true, showSender = f
         </a>
       );
     }
-    return <p className="text-sm leading-relaxed">{message.content}</p>;
+    // Highlight @mentions
+    const parts = message.content.split(/(@[\w]+)/g);
+    return (
+      <p className="text-sm leading-relaxed">
+        {parts.map((part, i) =>
+          part.startsWith('@') ? (
+            <span key={i} className="font-semibold text-purple-600">{part}</span>
+          ) : (
+            <span key={i}>{part}</span>
+          )
+        )}
+      </p>
+    );
   };
 
   return (
