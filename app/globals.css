@@ -230,4 +230,26 @@ body {
   animation: modalFadeScale 0.35s cubic-bezier(0.4,0,0.2,1);
 }
 
+/* Glassmorphic utility for custom use */
+.glassmorphic {
+  background: rgba(255,255,255,0.6);
+  border-radius: 1.5rem;
+  border: 1.5px solid rgba(255,255,255,0.3);
+  box-shadow: 0 8px 32px 0 rgba(31,38,135,0.15);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+/* Already present: .animate-mic-pulse, .animate-fade-in, .animate-shake, backdrop-blur-xl via Tailwind */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.7s cubic-bezier(0.4,0,0.2,1);
+}
+/* .animate-pulse is already provided by Tailwind */
+/* Add active:scale-95 if not present (Tailwind default) */
+
 

@@ -3,40 +3,83 @@
 
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { Home, Video, FolderOpen, MessageSquare } from "lucide-react"
+import { Home, Video, FolderOpen, MessageSquare, AtSign, Users, Star, Hash, AppWindow, MoreHorizontal } from "lucide-react"
 import clsx from "clsx"
 
-const sidebarItems = [
-  { id: "home", icon: Home, label: "Home", href: "/dashboard" },
-  { id: "meetings", icon: Video, label: "Meetings", href: "/dashboard/meetings" },
-  { id: "files", icon: FolderOpen, label: "Files", href: "/dashboard/files" },
-  { id: "chats", icon: MessageSquare, label: "Chats", href: "/dashboard/chats" },
+const sidebarSections = [
+  {
+    header: 'Mentions',
+    items: [
+      { id: "mentions", icon: AtSign, label: "Mentions", href: "/dashboard/mentions" },
+    ]
+  },
+  {
+    header: 'DMs',
+    items: [
+      { id: "dms", icon: Users, label: "DMs and channels", href: "/dashboard/dms" },
+      { id: "starred", icon: Star, label: "Starred", href: "/dashboard/starred" },
+    ]
+  },
+  {
+    header: 'Channels',
+    items: [
+      { id: "channels", icon: Hash, label: "Channels", href: "/dashboard/channels" },
+    ]
+  },
+  {
+    header: 'Meeting chats',
+    items: [
+      { id: "meetings", icon: Video, label: "Meeting chats", href: "/dashboard/meetings" },
+    ]
+  },
+  {
+    header: 'Apps',
+    items: [
+      { id: "apps", icon: AppWindow, label: "Apps", href: "/dashboard/apps" },
+    ]
+  },
+  {
+    header: 'More',
+    items: [
+      { id: "more", icon: MoreHorizontal, label: "More", href: "/dashboard/more" },
+    ]
+  },
 ]
 
 const Sidebar = () => {
   const pathname = usePathname()
 
   return (
-    <div className="w-24 bg-white border-r flex flex-col items-center py-10 px-3 min-h-screen">
-      <div className="space-y-6 w-full">
-        {sidebarItems.map((item) => {
-          const isActive = pathname === item.href
-          return (
-            <Link
-              key={item.id}
-              href={item.href}
-              className={clsx(
-                "w-full flex flex-col items-center p-3 rounded-lg transition-colors",
-                isActive ? "bg-purple-500 text-white" : "text-gray-600 hover:bg-gray-100"
-              )}
-            >
-              <item.icon className="h-6 w-6 mb-1" />
-              <span className="text-xs font-medium">{item.label}</span>
-            </Link>
-          )
-        })}
+    <aside className="w-64 bg-[#23272f] text-white flex flex-col min-h-screen border-r border-gray-900 shadow-lg">
+      <div className="flex flex-col gap-2 py-6 px-3">
+        {sidebarSections.map((section, idx) => (
+          <div key={section.header} className="mb-2">
+            <div className="text-xs font-semibold text-gray-400 px-2 mb-1 tracking-wide uppercase select-none">
+              {section.header}
+            </div>
+            <div className="flex flex-col gap-1">
+              {section.items.map((item) => {
+                const isActive = pathname === item.href
+                return (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    className={clsx(
+                      "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium",
+                      isActive ? "bg-[#313543] text-white shadow" : "text-gray-300 hover:bg-[#2d313a] hover:text-white"
+                    )}
+                  >
+                    <item.icon className="h-5 w-5" />
+                    <span>{item.label}</span>
+                  </Link>
+                )
+              })}
+            </div>
+            {idx < sidebarSections.length - 1 && <div className="my-2 border-b border-gray-800" />}
+          </div>
+        ))}
       </div>
-    </div>
+    </aside>
   )
 }
 

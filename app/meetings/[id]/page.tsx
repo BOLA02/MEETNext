@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback, useMemo, lazy, Suspense } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Mic, MicOff, Video, VideoOff, Settings, Copy, UserPlus, PhoneOff, Hand, Smile, Captions, MoreHorizontal, Share2, MessageCircle, Paperclip, SmilePlus, Pin, Loader2, X, Bell, Sun, Moon, Users, SlidersHorizontal, CheckCircle, Info, Speaker, Monitor, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -49,6 +49,8 @@ export default function MeetingPage() {
   console.log({ Tabs, TabsList, TabsTrigger, TabsContent, Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, Switch });
   const { id } = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const hasJoined = searchParams.get('joined') === '1'
   const [copied, setCopied] = useState(false)
   const [micOn, setMicOn] = useState(true)
   const [videoOn, setVideoOn] = useState(true)
@@ -368,10 +370,20 @@ export default function MeetingPage() {
   
   const handleLeave = useCallback(() => {
     if (localStream) {
-      localStream.getTracks().forEach(track => track.stop())
+      localStream.getTracks().forEach(track => track.stop());
     }
-    router.push('/')
-  }, [localStream, router])
+    if (screenStream) {
+      screenStream.getTracks().forEach(track => track.stop());
+    }
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+    }
+    if (id) {
+      router.push(`/meetings/lobby?id=${id}`);
+    } else {
+      router.push('/');
+    }
+  }, [localStream, screenStream, router, id]);
 
   const handleMore = useCallback(() => {}, [])
 
@@ -551,6 +563,16 @@ export default function MeetingPage() {
       }
     };
   }, [captionsOn]);
+
+  useEffect(() => {
+    if (!hasJoined && typeof window !== 'undefined' && id) {
+      router.replace(`/meetings/lobby?id=${id}`);
+    }
+  }, [hasJoined, id, router]);
+
+  if (!hasJoined) {
+    return null;
+  }
 
   if (!user) {
     return <div className="flex-1 flex items-center justify-center min-h-screen bg-[#232323]"><div className="w-10 h-10 border-4 border-purple-300 border-t-transparent rounded-full animate-spin" /></div>;
